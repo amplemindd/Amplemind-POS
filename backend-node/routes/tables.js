@@ -1,4 +1,5 @@
 "use strict";
+const { newQrToken } = require("../lib/tenantSql");
 const crypto = require("crypto");
 const { api, q, one, tx, cq, fail, audit, notify, paging, like, str, bool, num, getSettings, pool } = require("../lib/core");
 
@@ -53,7 +54,7 @@ api.post("/api/tables", "tables.manage", async (ctx) => {
   if (ctx.body.capacity === undefined) capacity = S.default_table_capacity;
   if (await one("SELECT id FROM bb_tables WHERE name = ?", [name])) throw fail(409, "A table with this name already exists.");
   const [{ m }] = await q("SELECT COALESCE(MAX(sort_order),0)+1 m FROM bb_tables");
-  const r = (await pool.query("INSERT INTO bb_tables (name, capacity, sort_order, status_since, qr_token) VALUES (?,?,?,NOW(),?)", [name, capacity, m, crypto.randomUUID()]))[0];
+  const r = (await pool.query("INSERT INTO bb_tables (name, capacity, sort_order, status_since, qr_token) VALUES (?,?,?,NOW(),?)", [name, capacity, m, newQrToken()]))[0];
   await audit(ctx, { action: "Created", module: "Tables", details: `Added table ${name}`, record_id: r.insertId });
   return { __status: 201, id: r.insertId, message: `Table ${name} added.` };
 });

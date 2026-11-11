@@ -10,7 +10,8 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 
-const { migrate } = require("./lib/migrate");
+const { migrateGlobal } = require("./lib/migrate");
+const tenants = require("./lib/tenants");
 const core = require("./lib/core");
 const { createStatic } = require("./lib/static");
 
@@ -25,6 +26,7 @@ require("./routes/online");
 require("./routes/waiter");
 require("./routes/qr");
 require("./routes/reports");
+require("./routes/platform");
 
 const { startAutoBackup } = require("./routes/system");
 
@@ -168,6 +170,18 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // Cafe owner sign-up page and the website-owner panel (plain HTML, no build needed)
+    if (req.method === "GET" && ["/signup", "/signup/", "/platform", "/platform/"].includes(url.pathname)) {
+      const page = url.pathname.startsWith("/signup") ? "signup.html" : "platform.html";
+      const html = fs.readFileSync(path.join(__dirname, "public", page));
+      res.writeHead(200, {
+        "Content-Type": "text/html; charset=utf-8",
+        "Cache-Control": "no-store",
+        "X-Frame-Options": "DENY",
+      });
+      return res.end(html);
+    }
+
     // Website (React build) - every non-API page
     if (serveStatic(req, res, url)) return;
 
@@ -214,7 +228,7 @@ const server = http.createServer(async (req, res) => {
 
   // Database Migration
   try {
-    await migrate();
+    await migrateGlobal();
     console.log("Database ready.");
     try {
       const n = await core.syncUploadsToDb();
@@ -231,7 +245,18 @@ const server = http.createServer(async (req, res) => {
     );
   }
 
-  // Existing Automatic Backup
+  // Update every cafe's tables to the latest version in the background
+  (async () => {
+    try {
+      for (const id of await tenants.listActiveTenantIds()) {
+        await tenants.ensureTenant(id).catch((e) => console.error(`Cafe ${id} setup failed:`, e.message));
+      }
+    } catch (e) {
+      console.error("Cafe setup failed:", e.message);
+    }
+  })();
+
+  // Automatic backup (per cafe)
   startAutoBackup();
 
   // Listen on all network interfaces

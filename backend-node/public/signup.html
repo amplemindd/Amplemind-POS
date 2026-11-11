@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Create your cafe - Chai Order System</title>
+<style>
+  :root { --bg:#faf6f0; --card:#fff; --ink:#2b1d14; --muted:#7a6a5d; --brand:#b4561f; --brand-d:#933f10; --line:#e6dccf; --err:#b3261e; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background:var(--bg); color:var(--ink); min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px; }
+  .card { width:100%; max-width:440px; background:var(--card); border:1px solid var(--line); border-radius:16px; padding:28px 24px; box-shadow:0 6px 24px rgba(60,30,10,.07); }
+  h1 { margin:0 0 4px; font-size:1.45rem; }
+  p.sub { margin:0 0 20px; color:var(--muted); font-size:.95rem; }
+  label { display:block; font-size:.85rem; font-weight:600; margin:14px 0 6px; }
+  input { width:100%; padding:12px 14px; font-size:1rem; border:1px solid var(--line); border-radius:10px; background:#fff; color:var(--ink); }
+  input:focus { outline:2px solid var(--brand); outline-offset:1px; border-color:transparent; }
+  button { width:100%; margin-top:22px; padding:13px; font-size:1rem; font-weight:600; color:#fff; background:var(--brand); border:0; border-radius:10px; cursor:pointer; }
+  button:hover { background:var(--brand-d); }
+  button:disabled { opacity:.6; cursor:wait; }
+  .msg { margin-top:14px; padding:10px 12px; border-radius:8px; font-size:.9rem; display:none; }
+  .msg.err { display:block; background:#fdecea; color:var(--err); }
+  .foot { margin-top:18px; text-align:center; font-size:.9rem; color:var(--muted); }
+  a { color:var(--brand); }
+  .closed { text-align:center; color:var(--muted); }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>Create your cafe</h1>
+  <p class="sub">Set up your own Chai Order System: menu, tables, QR ordering, staff and reports.</p>
+  <form id="f" novalidate>
+    <label for="cafe_name">Cafe / restaurant name</label>
+    <input id="cafe_name" autocomplete="organization" maxlength="150" required>
+    <label for="owner_name">Owner name</label>
+    <input id="owner_name" autocomplete="name" maxlength="100" required>
+    <label for="email">Email (your login)</label>
+    <input id="email" type="email" autocomplete="email" maxlength="150" required>
+    <label for="phone">Mobile number</label>
+    <input id="phone" type="tel" autocomplete="tel" maxlength="20">
+    <label for="password">Password (min 8 characters)</label>
+    <input id="password" type="password" autocomplete="new-password" minlength="8" required>
+    <label for="password2">Confirm password</label>
+    <input id="password2" type="password" autocomplete="new-password" required>
+    <button id="btn" type="submit">Create my cafe</button>
+    <div id="msg" class="msg" role="alert"></div>
+  </form>
+  <div class="foot">Already have an account? <a href="/">Sign in</a></div>
+</div>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var msg = $("msg");
+  function show(t) { msg.textContent = t; msg.className = "msg err"; }
+
+  fetch("/api/platform/config").then(function (r) { return r.json(); }).then(function (c) {
+    if (c && c.signup_open === false) {
+      $("f").outerHTML = '<p class="closed">New sign-ups are closed right now. Please contact the website owner.</p>';
+    }
+  }).catch(function () {});
+
+  $("f").addEventListener("submit", function (e) {
+    e.preventDefault();
+    msg.className = "msg";
+    if ($("password").value !== $("password2").value) return show("Passwords do not match.");
+    var btn = $("btn"); btn.disabled = true; btn.textContent = "Creating...";
+    fetch("/api/platform/signup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        cafe_name: $("cafe_name").value, owner_name: $("owner_name").value,
+        email: $("email").value, phone: $("phone").value, password: $("password").value
+      })
+    }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+      .then(function (x) {
+        if (!x.ok || !x.d.token) throw new Error((x.d && x.d.message) || "Could not create the cafe.");
+        localStorage.setItem("bbToken", x.d.token);
+        location.href = "/";
+      })
+      .catch(function (err) { show(err.message); btn.disabled = false; btn.textContent = "Create my cafe"; });
+  });
+})();
+</script>
+</body>
+</html>

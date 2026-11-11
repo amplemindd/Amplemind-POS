@@ -6,18 +6,13 @@ const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 const pool = require("../config/db");
 const DEFAULTS = require("./defaults");
+const { currentTenantId, tidFromQrToken } = require("./tenantSql");
+const { runInTenant, getTenantBySlug } = require("./tenants");
 
 const UPLOAD_DIR = path.join(__dirname, "..", "uploads");
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
-class HttpError extends Error {
-  constructor(status, message) {
-    super(message);
-    this.status = status;
-  }
-}
-
-const fail = (status, message) => new HttpError(status, message);
+const { HttpError, fail } = require("./errors");
 
 const q = async (sql, params) => (await pool.query(sql, params))[0];
 const one = async (sql, params) => (await q(sql, params))[0] || null;
@@ -42,12 +37,15 @@ const cq = async (c, sql, params) => (await c.query(sql, params))[0];
 
 /* ---------- SETTINGS ---------- */
 
-let settingsCache = null;
-let settingsAt = 0;
+// Settings are cached per cafe (never shared between cafes).
+const settingsCache = new Map();
 
 async function getSettings(force) {
-  if (!force && settingsCache && Date.now() - settingsAt < 5000) {
-    return settingsCache;
+  const tid = currentTenantId();
+  const hit = settingsCache.get(tid);
+
+  if (!force && hit && Date.now() - hit.at < 5000) {
+    return hit.s;
   }
 
   const rows = await q("SELECT k, v FROM bb_settings");
@@ -61,39 +59,18 @@ async function getSettings(force) {
     }
   }
 
-  settingsCache = s;
-  settingsAt = Date.now();
+  settingsCache.set(tid, { s, at: Date.now() });
 
   return s;
 }
 
 const clearSettingsCache = () => {
-  settingsCache = null;
+  settingsCache.delete(currentTenantId());
 };
 
 /* ---------- AUTH / PERMISSIONS ---------- */
 
-const PERMISSIONS = [
-  ["waiter", "Waiter mobile app (take orders, send KOT)"],
-  ["pos", "POS / Billing"],
-  ["orders", "View orders"],
-  ["orders.cancel", "Cancel orders / refunds"],
-  ["tables", "View tables"],
-  ["tables.manage", "Manage tables"],
-  ["menu", "View menu items"],
-  ["menu.manage", "Manage menu items & categories"],
-  ["customers", "View customers"],
-  ["customers.manage", "Add / edit customers"],
-  ["reports", "Reports & dashboard"],
-  ["expenses", "Expenses"],
-  ["taxes", "Taxes / GST"],
-  ["staff", "Staff & roles"],
-  ["audit", "Audit logs"],
-  ["notifications", "Notifications"],
-  ["settings", "Settings"],
-  ["discount", "Apply discounts"],
-  ["backup", "Backup & restore"]
-];
+const { PERMISSIONS } = require("./permissions");
 
 // Safe permission check: null user will never crash.
 const can = (user, perm) =>
@@ -101,20 +78,25 @@ const can = (user, perm) =>
   Array.isArray(user.perms) &&
   (user.perms.includes("*") || user.perms.includes(perm));
 
-async function authenticate(req) {
+function readClaims(req, issuer = "chai-order-api") {
   const m = (req.headers.authorization || "").match(/^Bearer\s+(.+)$/i);
 
   if (!m || !process.env.JWT_SECRET) {
     return null;
   }
 
-  let payload;
-
   try {
-    payload = jwt.verify(m[1], process.env.JWT_SECRET, {
-      issuer: "chai-order-api"
-    });
+    return jwt.verify(m[1], process.env.JWT_SECRET, { issuer });
   } catch {
+    return null;
+  }
+}
+
+async function authenticate(req) {
+  const payload = readClaims(req);
+
+  // The token must belong to the cafe this request is running for.
+  if (!payload || !payload.tid || Number(payload.tid) !== currentTenantId()) {
     return null;
   }
 
@@ -152,64 +134,41 @@ async function authenticate(req) {
   };
 }
 
-// Public front acts as cashier only when Public POS is enabled.
-let pubCache = null;
-let pubAt = 0;
-
+// Multi-cafe mode: there is no anonymous cashier. Staff must always sign in.
 async function publicUser() {
-  if (pubCache && Date.now() - pubAt < 5000) {
-    const S = await getSettings();
-
-    if (S.public_front === false) {
-      pubCache = null;
-      return null;
-    }
-
-    return pubCache;
-  }
-
-  const S = await getSettings();
-
-  if (S.public_front === false) {
-    pubCache = null;
-    return null;
-  }
-
-  const r = await one(
-    "SELECT permissions FROM bb_roles WHERE name = 'cashier'"
-  );
-
-  let perms = [];
-
-  try {
-    perms = JSON.parse((r && r.permissions) || "[]");
-  } catch {
-    perms = [];
-  }
-
-  pubCache = {
-    id: null,
-    name: "Cashier",
-    email: "",
-    role: "cashier",
-    perms,
-    public: true
-  };
-
-  pubAt = Date.now();
-
-  return pubCache;
+  return null;
 }
 
 const signToken = (user) =>
   jwt.sign(
-    { uid: user.id, role: user.role },
+    { uid: user.id, role: user.role, tid: currentTenantId() },
     process.env.JWT_SECRET,
     {
       expiresIn: "10h",
       issuer: "chai-order-api"
     }
   );
+
+const signPlatformToken = (admin) =>
+  jwt.sign({ pid: admin.id, sa: true }, process.env.JWT_SECRET, {
+    expiresIn: "12h",
+    issuer: "chai-order-platform"
+  });
+
+async function authenticatePlatform(req) {
+  const p = readClaims(req, "chai-order-platform");
+
+  if (!p || !p.sa || !p.pid) {
+    return null;
+  }
+
+  const a = await one(
+    "SELECT id, name, email, is_active FROM platform_admins WHERE id = ?",
+    [p.pid]
+  );
+
+  return a && a.is_active ? a : null;
+}
 
 /* ---------- AUDIT + NOTIFICATIONS ---------- */
 
@@ -510,64 +469,80 @@ async function dispatch(req, res, url) {
       params,
       query: Object.fromEntries(url.searchParams),
       user: null,
+      admin: null,
       body: {},
       ip: req.socket.remoteAddress
     };
 
     /*
-      Authentication rules:
+      Which cafe is this request for?
 
-      1. Routes with perm = null are public.
-         Login routes should use null.
-
-      2. Routes with perm = "auth" require a valid staff JWT.
-         Example: /api/auth/me
-
-      3. Other protected routes accept staff JWT.
-         Public POS fallback is allowed only when enabled.
+      - Routes with perm "platform" belong to the website owner (no cafe).
+      - Routes with a perm use the cafe stored inside the staff token.
+      - Public routes (perm = null) find the cafe from the QR token
+        (/api/public/qr/:token) or the cafe slug (/api/.../:slug/...).
+        Login routes pick the cafe themselves.
     */
+    const exec = async () => {
+      if (r.perm === "platform") {
+        ctx.admin = await authenticatePlatform(req);
 
-    if (r.perm) {
-      ctx.user = process.env.JWT_SECRET
-        ? await authenticate(req)
-        : null;
+        if (!ctx.admin) {
+          throw fail(401, "Please sign in as the website owner.");
+        }
+      } else if (r.perm) {
+        ctx.user = process.env.JWT_SECRET ? await authenticate(req) : null;
 
-      // Public POS fallback only for non-auth routes.
-      if (!ctx.user && r.perm !== "auth") {
-        const pu = await publicUser();
+        if (!ctx.user) {
+          throw fail(401, "Please sign in to continue.");
+        }
 
-        if (pu && can(pu, r.perm)) {
-          ctx.user = pu;
+        if (r.perm !== "auth" && !can(ctx.user, r.perm)) {
+          throw fail(403, "You do not have permission to do this.");
         }
       }
 
-      if (!ctx.user) {
-        throw fail(401, "Please sign in to continue.");
+      if (["POST", "PUT", "PATCH"].includes(req.method)) {
+        ctx.body = await readBody(req);
       }
 
-      if (r.perm !== "auth" && !can(ctx.user, r.perm)) {
-        throw fail(
-          ctx.user.public ? 401 : 403,
-          ctx.user.public
-            ? "Please sign in as staff to do this."
-            : "You do not have permission to do this."
-        );
+      const result = await r.handler(ctx);
+
+      if (result !== undefined) {
+        const { __status, ...rest } = result;
+
+        send(res, __status || 200, {
+          success: true,
+          ...rest
+        });
       }
+    };
+
+    let tid = null;
+
+    if (r.perm && r.perm !== "platform") {
+      const c = readClaims(req);
+      tid = c && c.tid ? Number(c.tid) : null;
+    } else if (!r.perm && params.token) {
+      tid = tidFromQrToken(params.token);
+
+      if (!tid) {
+        throw fail(404, "This table QR code is invalid or inactive.");
+      }
+    } else if (!r.perm && params.slug) {
+      const t = await getTenantBySlug(params.slug);
+
+      if (!t) {
+        throw fail(404, "Cafe not found.");
+      }
+
+      tid = t.id;
     }
 
-    if (["POST", "PUT", "PATCH"].includes(req.method)) {
-      ctx.body = await readBody(req);
-    }
-
-    const result = await r.handler(ctx);
-
-    if (result !== undefined) {
-      const { __status, ...rest } = result;
-
-      send(res, __status || 200, {
-        success: true,
-        ...rest
-      });
+    if (tid) {
+      await runInTenant(tid, exec);
+    } else {
+      await exec();
     }
 
     return true;
@@ -612,7 +587,11 @@ module.exports = {
   PERMISSIONS,
   can,
   authenticate,
+  authenticatePlatform,
+  signPlatformToken,
   signToken,
+  currentTenantId,
+  runInTenant,
   audit,
   notify,
   saveUpload,

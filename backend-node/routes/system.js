@@ -2,7 +2,8 @@
 // Notifications, Audit logs, Settings, Backup & restore
 const fs = require("fs");
 const path = require("path");
-const { api, q, one, tx, fail, audit, notify, paging, like, str, isYmd, dateRange, getSettings, maskSettings, SECRET_KEYS, clearSettingsCache, saveUpload, removeUpload, pool, send } = require("../lib/core");
+const { api, q, one, tx, fail, audit, notify, paging, like, str, isYmd, dateRange, getSettings, maskSettings, SECRET_KEYS, clearSettingsCache, saveUpload, removeUpload, pool, send, currentTenantId } = require("../lib/core");
+const { runInTenant, reindexTenant, listActiveTenantIds } = require("../lib/tenants");
 const DEFAULTS = require("../lib/defaults");
 
 /* ================= NOTIFICATIONS ================= */
@@ -97,7 +98,7 @@ fs.mkdirSync(BACKUP_DIR, { recursive: true });
 async function createBackup(who) {
   const data = { version: 1, created_at: new Date().toISOString(), tables: {} };
   for (const t of TABLES) data.tables[t] = await q(`SELECT * FROM \`${t}\``);
-  const filename = `backup-${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
+  const filename = `backup-t${currentTenantId()}-${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
   const text = JSON.stringify(data);
   fs.writeFileSync(path.join(BACKUP_DIR, filename), text);
   const r = (await pool.query("INSERT INTO bb_backups (filename, size, created_by) VALUES (?,?,?)", [filename, Buffer.byteLength(text), who]))[0];
@@ -141,18 +142,26 @@ api.post("/api/backups/:id/restore", "backup", async (ctx) => {
     await c.query("SET FOREIGN_KEY_CHECKS = 1");
   });
   clearSettingsCache();
+  await reindexTenant(currentTenantId());
   return { message: "Backup restored. Please sign in again if your account changed." };
 });
 
-// optional automatic backup (checked every hour)
+// optional automatic backup (checked every hour, separately for every cafe)
+async function autoBackupOne(tid) {
+  await runInTenant(tid, async () => {
+    const S = await getSettings(true);
+    if (!S.backup_auto) return;
+    const hours = S.backup_frequency === "weekly" ? 168 : 24;
+    const [l] = await q("SELECT TIMESTAMPDIFF(HOUR, MAX(created_at), NOW()) h FROM bb_backups");
+    if (l.h === null || l.h >= hours) await createBackup("Auto backup");
+  });
+}
 function startAutoBackup() {
   setInterval(async () => {
     try {
-      const S = await getSettings(true);
-      if (!S.backup_auto) return;
-      const hours = S.backup_frequency === "weekly" ? 168 : 24;
-      const [l] = await q("SELECT TIMESTAMPDIFF(HOUR, MAX(created_at), NOW()) h FROM bb_backups");
-      if (l.h === null || l.h >= hours) await createBackup("Auto backup");
+      for (const tid of await listActiveTenantIds()) {
+        try { await autoBackupOne(tid); } catch (e) { console.error(`Auto backup failed for cafe ${tid}:`, e.message); }
+      }
     } catch (e) { console.error("Auto backup failed:", e.message); }
   }, 60 * 60 * 1000).unref();
 }

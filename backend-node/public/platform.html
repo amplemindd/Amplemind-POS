@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Owner Panel - Chai Order System</title>
+<style>
+  :root { --bg:#f6f3ee; --card:#fff; --ink:#27190f; --muted:#7a6a5d; --brand:#b4561f; --brand-d:#933f10; --line:#e6dccf; --ok:#1b7f3b; --bad:#b3261e; --warn:#a36200; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--ink); }
+  header { background:#2b1d14; color:#fff; padding:14px 20px; display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  header h1 { margin:0; font-size:1.1rem; }
+  header .who { font-size:.85rem; opacity:.85; display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+  main { max-width:1100px; margin:0 auto; padding:20px; }
+  .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-bottom:18px; }
+  .stat { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 16px; }
+  .stat b { display:block; font-size:1.6rem; }
+  .stat span { color:var(--muted); font-size:.85rem; }
+  .bar { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px; }
+  input, select, textarea { padding:10px 12px; font-size:.95rem; border:1px solid var(--line); border-radius:8px; background:#fff; color:var(--ink); font-family:inherit; }
+  .bar input { flex:1; min-width:180px; }
+  button { padding:10px 16px; font-size:.95rem; font-weight:600; border:0; border-radius:8px; cursor:pointer; background:var(--brand); color:#fff; }
+  button:hover { background:var(--brand-d); }
+  button.ghost { background:#fff; color:var(--ink); border:1px solid var(--line); }
+  button.ghost:hover { background:#f3ece2; }
+  button.danger { background:var(--bad); }
+  button.small { padding:6px 12px; font-size:.85rem; }
+  button:disabled { opacity:.6; cursor:wait; }
+  .tablewrap { background:var(--card); border:1px solid var(--line); border-radius:12px; overflow-x:auto; }
+  table { width:100%; border-collapse:collapse; min-width:760px; }
+  th, td { text-align:left; padding:11px 14px; border-bottom:1px solid var(--line); font-size:.92rem; vertical-align:middle; }
+  th { font-size:.78rem; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); background:#faf6f0; }
+  tr:last-child td { border-bottom:0; }
+  .pill { display:inline-block; padding:2px 10px; border-radius:99px; font-size:.78rem; font-weight:600; }
+  .pill.active { background:#e3f4e8; color:var(--ok); }
+  .pill.suspended { background:#fdecea; color:var(--bad); }
+  .pill.expired { background:#fff1d6; color:var(--warn); }
+  .muted { color:var(--muted); }
+  .empty { padding:30px; text-align:center; color:var(--muted); }
+  .login { max-width:380px; margin:12vh auto; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:26px; }
+  .login h2 { margin:0 0 16px; }
+  label { display:block; font-size:.82rem; font-weight:600; margin:12px 0 5px; }
+  .login input, .modal input, .modal select, .modal textarea { width:100%; }
+  .login button { width:100%; margin-top:18px; }
+  .err { color:var(--bad); font-size:.88rem; margin-top:10px; min-height:1.2em; }
+  .overlay { position:fixed; inset:0; background:rgba(30,15,5,.5); display:none; align-items:flex-start; justify-content:center; padding:24px 14px; overflow-y:auto; z-index:10; }
+  .overlay.open { display:flex; }
+  .modal { background:#fff; border-radius:14px; width:100%; max-width:560px; padding:22px; }
+  .modal h3 { margin:0 0 4px; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .kv { display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); gap:8px; margin:14px 0; }
+  .kv div { background:#faf6f0; border-radius:8px; padding:8px 10px; font-size:.8rem; color:var(--muted); }
+  .kv b { display:block; color:var(--ink); font-size:1.05rem; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; margin-top:16px; }
+  hr { border:0; border-top:1px solid var(--line); margin:18px 0; }
+  .toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:#2b1d14; color:#fff; padding:10px 18px; border-radius:8px; font-size:.9rem; display:none; z-index:20; }
+</style>
+</head>
+<body>
+
+<div id="loginView" class="login" style="display:none">
+  <h2>Owner login</h2>
+  <label for="lemail">Email</label>
+  <input id="lemail" type="email" autocomplete="username">
+  <label for="lpass">Password</label>
+  <input id="lpass" type="password" autocomplete="current-password">
+  <button id="lbtn">Sign in</button>
+  <div id="lerr" class="err"></div>
+</div>
+
+<div id="appView" style="display:none">
+  <header>
+    <h1>Chai Order System - Owner Panel</h1>
+    <div class="who"><span id="whoami"></span><button class="ghost small" id="pwBtn">Change password</button><button class="ghost small" id="outBtn">Sign out</button></div>
+  </header>
+  <main>
+    <div class="cards">
+      <div class="stat"><b id="sTotal">0</b><span>Total cafes</span></div>
+      <div class="stat"><b id="sActive">0</b><span>Active</span></div>
+      <div class="stat"><b id="sSusp">0</b><span>Suspended</span></div>
+      <div class="stat"><b id="sSignup">-</b><span>Public sign-up</span></div>
+    </div>
+    <div class="bar">
+      <input id="search" placeholder="Search by cafe, email or code">
+      <select id="statusF"><option value="all">All status</option><option value="active">Active</option><option value="suspended">Suspended</option></select>
+      <button id="newBtn">+ New cafe</button>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Cafe</th><th>Owner</th><th>Plan</th><th>Valid till</th><th>Status</th><th>Joined</th><th></th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+      <div id="empty" class="empty" style="display:none">No cafes yet.</div>
+    </div>
+    <p class="muted" style="font-size:.85rem">Sign-up page for cafe owners: <b id="signupUrl"></b></p>
+  </main>
+</div>
+
+<!-- manage cafe -->
+<div id="manageOv" class="overlay"><div class="modal">
+  <h3 id="mName"></h3>
+  <div class="muted" id="mMeta" style="font-size:.88rem"></div>
+  <div class="kv" id="mStats"></div>
+  <div class="grid2">
+    <div><label for="mPlan">Plan</label>
+      <select id="mPlan"><option>free</option><option>trial</option><option>basic</option><option>standard</option><option>premium</option></select></div>
+    <div><label for="mEnd">Valid till (blank = no expiry)</label><input id="mEnd" type="date"></div>
+  </div>
+  <div class="grid2">
+    <div><label for="mStatus">Status</label><select id="mStatus"><option value="active">Active</option><option value="suspended">Suspended</option></select></div>
+    <div><label for="mCafe">Cafe name</label><input id="mCafe" maxlength="150"></div>
+  </div>
+  <label for="mNotes">Private notes</label>
+  <textarea id="mNotes" rows="2" maxlength="500"></textarea>
+  <div class="row"><button id="mSave">Save changes</button><button class="ghost" id="mClose">Close</button></div>
+  <div class="err" id="mErr"></div>
+  <hr>
+  <label for="mPw">Reset owner password (min 8 characters)</label>
+  <div class="row" style="margin-top:0"><input id="mPw" type="text" placeholder="New password" style="flex:1"><button class="ghost" id="mReset">Reset</button></div>
+  <hr>
+  <label for="mDel">Delete cafe forever: type its code <b id="mSlug"></b></label>
+  <div class="row" style="margin-top:0"><input id="mDel" style="flex:1"><button class="danger" id="mDelBtn">Delete</button></div>
+</div></div>
+
+<!-- new cafe -->
+<div id="newOv" class="overlay"><div class="modal">
+  <h3>Create a cafe</h3>
+  <div class="muted" style="font-size:.88rem">The owner can sign in with this email and password.</div>
+  <label for="nCafe">Cafe / restaurant name</label><input id="nCafe" maxlength="150">
+  <div class="grid2">
+    <div><label for="nOwner">Owner name</label><input id="nOwner" maxlength="100"></div>
+    <div><label for="nPhone">Mobile</label><input id="nPhone" maxlength="20"></div>
+  </div>
+  <label for="nEmail">Owner email</label><input id="nEmail" type="email" maxlength="150">
+  <label for="nPass">Password (min 8 characters)</label><input id="nPass" type="text">
+  <div class="grid2">
+    <div><label for="nPlan">Plan</label><select id="nPlan"><option>free</option><option>trial</option><option>basic</option><option>standard</option><option>premium</option></select></div>
+    <div><label for="nEnd">Valid till (optional)</label><input id="nEnd" type="date"></div>
+  </div>
+  <div class="row"><button id="nSave">Create cafe</button><button class="ghost" id="nClose">Cancel</button></div>
+  <div class="err" id="nErr"></div>
+</div></div>
+
+<!-- change password -->
+<div id="pwOv" class="overlay"><div class="modal">
+  <h3>Change your password</h3>
+  <label for="pCur">Current password</label><input id="pCur" type="password" autocomplete="current-password">
+  <label for="pNew">New password (min 8 characters)</label><input id="pNew" type="password" autocomplete="new-password">
+  <div class="row"><button id="pSave">Change password</button><button class="ghost" id="pClose">Cancel</button></div>
+  <div class="err" id="pErr"></div>
+</div></div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var TK = "bbPlatformToken", token = localStorage.getItem(TK) || "", current = null, timer;
+
+  function toast(t) { var el = $("toast"); el.textContent = t; el.style.display = "block"; clearTimeout(timer); timer = setTimeout(function () { el.style.display = "none"; }, 2600); }
+  function api(path, opt) {
+    opt = opt || {};
+    var h = { "Content-Type": "application/json" };
+    if (token) h.Authorization = "Bearer " + token;
+    return fetch("/api/platform" + path, { method: opt.method || "GET", headers: h, body: opt.body ? JSON.stringify(opt.body) : undefined })
+      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) {
+        if (r.status === 401 && token) { logout(); }
+        if (!r.ok) throw new Error(d.message || "Request failed.");
+        return d;
+      }); });
+  }
+  function el(tag, text, cls) { var e = document.createElement(tag); if (text !== undefined && text !== null) e.textContent = text; if (cls) e.className = cls; return e; }
+  function open(id) { $(id).classList.add("open"); }
+  function close(id) { $(id).classList.remove("open"); }
+  function fmtDate(s) { if (!s) return "-"; var d = new Date(String(s).replace(" ", "T")); return isNaN(d) ? String(s).slice(0, 10) : d.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" }); }
+
+  function logout() { token = ""; localStorage.removeItem(TK); show(); }
+  function show() {
+    $("loginView").style.display = token ? "none" : "block";
+    $("appView").style.display = token ? "block" : "none";
+    if (token) { $("signupUrl").textContent = location.origin + "/signup"; load(); }
+  }
+
+  /* login */
+  function doLogin() {
+    $("lerr").textContent = ""; $("lbtn").disabled = true;
+    api("/login", { method: "POST", body: { email: $("lemail").value, password: $("lpass").value } })
+      .then(function (d) { token = d.token; localStorage.setItem(TK, token); $("whoami").textContent = d.admin.email; $("lpass").value = ""; show(); })
+      .catch(function (e) { $("lerr").textContent = e.message; })
+      .then(function () { $("lbtn").disabled = false; });
+  }
+  $("lbtn").onclick = doLogin;
+  $("lpass").addEventListener("keydown", function (e) { if (e.key === "Enter") doLogin(); });
+  $("outBtn").onclick = logout;
+
+  /* list */
+  var searchTimer;
+  $("search").addEventListener("input", function () { clearTimeout(searchTimer); searchTimer = setTimeout(load, 300); });
+  $("statusF").onchange = load;
+  function load() {
+    var qs = "?status=" + encodeURIComponent($("statusF").value) + "&q=" + encodeURIComponent($("search").value.trim());
+    api("/tenants" + qs).then(function (d) {
+      $("sTotal").textContent = d.summary.total; $("sActive").textContent = d.summary.active; $("sSusp").textContent = d.summary.suspended;
+      $("sSignup").textContent = d.signup_open ? "Open" : "Closed";
+      var body = $("rows"); body.textContent = "";
+      $("empty").style.display = d.tenants.length ? "none" : "block";
+      d.tenants.forEach(function (t) {
+        var tr = el("tr");
+        var c1 = el("td"); c1.appendChild(el("b", t.name)); c1.appendChild(el("div", t.slug, "muted")); tr.appendChild(c1);
+        var c2 = el("td"); c2.appendChild(el("div", t.owner_name)); c2.appendChild(el("div", t.owner_email, "muted")); tr.appendChild(c2);
+        tr.appendChild(el("td", t.plan));
+        var c4 = el("td", t.subscription_ends_at ? fmtDate(t.subscription_ends_at) : "No expiry");
+        if (t.expired) { c4.appendChild(document.createTextNode(" ")); c4.appendChild(el("span", "expired", "pill expired")); }
+        tr.appendChild(c4);
+        var c5 = el("td"); c5.appendChild(el("span", t.status, "pill " + (t.status === "active" ? "active" : "suspended"))); tr.appendChild(c5);
+        tr.appendChild(el("td", fmtDate(t.created_at), "muted"));
+        var c7 = el("td"); var b = el("button", "Manage", "ghost small"); b.onclick = function () { manage(t.id); }; c7.appendChild(b); tr.appendChild(c7);
+        body.appendChild(tr);
+      });
+    }).catch(function (e) { toast(e.message); });
+  }
+
+  /* manage */
+  function manage(id) {
+    $("mErr").textContent = ""; $("mPw").value = ""; $("mDel").value = "";
+    api("/tenants/" + id).then(function (d) {
+      var t = d.tenant, s = d.stats; current = t;
+      $("mName").textContent = t.name;
+      $("mMeta").textContent = "Code: " + t.slug + "  |  Owner: " + t.owner_name + " (" + t.owner_email + ")" + (t.owner_phone ? "  |  " + t.owner_phone : "");
+      var kv = $("mStats"); kv.textContent = "";
+      [["Staff", s.staff], ["Tables", s.tables], ["Menu items", s.items], ["Orders", s.orders], ["Today", s.orders_today], ["Last order", s.last_order_at ? fmtDate(s.last_order_at) : "-"]].forEach(function (x) {
+        var d1 = el("div", x[0]); d1.insertBefore(el("b", x[1]), d1.firstChild); kv.appendChild(d1);
+      });
+      $("mPlan").value = t.plan; if ($("mPlan").value !== t.plan) { var o = el("option", t.plan); $("mPlan").appendChild(o); $("mPlan").value = t.plan; }
+      $("mEnd").value = t.subscription_ends_at || ""; $("mStatus").value = t.status; $("mCafe").value = t.name; $("mNotes").value = t.notes || "";
+      $("mSlug").textContent = t.slug; open("manageOv");
+    }).catch(function (e) { toast(e.message); });
+  }
+  $("mClose").onclick = function () { close("manageOv"); };
+  $("mSave").onclick = function () {
+    $("mErr").textContent = "";
+    api("/tenants/" + current.id, { method: "PATCH", body: { plan: $("mPlan").value, subscription_ends_at: $("mEnd").value || "", status: $("mStatus").value, name: $("mCafe").value, notes: $("mNotes").value } })
+      .then(function () { toast("Saved."); close("manageOv"); load(); })
+      .catch(function (e) { $("mErr").textContent = e.message; });
+  };
+  $("mReset").onclick = function () {
+    api("/tenants/" + current.id + "/reset-password", { method: "POST", body: { password: $("mPw").value } })
+      .then(function (d) { toast(d.message); $("mPw").value = ""; }).catch(function (e) { $("mErr").textContent = e.message; });
+  };
+  $("mDelBtn").onclick = function () {
+    if (!confirm("Delete this cafe and ALL its data permanently?")) return;
+    api("/tenants/" + current.id + "?confirm=" + encodeURIComponent($("mDel").value.trim()), { method: "DELETE" })
+      .then(function (d) { toast(d.message); close("manageOv"); load(); }).catch(function (e) { $("mErr").textContent = e.message; });
+  };
+
+  /* new cafe */
+  $("newBtn").onclick = function () { ["nCafe", "nOwner", "nPhone", "nEmail", "nPass", "nEnd"].forEach(function (i) { $(i).value = ""; }); $("nErr").textContent = ""; open("newOv"); };
+  $("nClose").onclick = function () { close("newOv"); };
+  $("nSave").onclick = function () {
+    $("nErr").textContent = ""; $("nSave").disabled = true;
+    api("/tenants", { method: "POST", body: { cafe_name: $("nCafe").value, owner_name: $("nOwner").value, phone: $("nPhone").value, email: $("nEmail").value, password: $("nPass").value, plan: $("nPlan").value, subscription_ends_at: $("nEnd").value || "" } })
+      .then(function () { toast("Cafe created."); close("newOv"); load(); })
+      .catch(function (e) { $("nErr").textContent = e.message; })
+      .then(function () { $("nSave").disabled = false; });
+  };
+
+  /* change own password */
+  $("pwBtn").onclick = function () { $("pCur").value = ""; $("pNew").value = ""; $("pErr").textContent = ""; open("pwOv"); };
+  $("pClose").onclick = function () { close("pwOv"); };
+  $("pSave").onclick = function () {
+    api("/password", { method: "PUT", body: { current_password: $("pCur").value, new_password: $("pNew").value } })
+      .then(function (d) { toast(d.message); close("pwOv"); }).catch(function (e) { $("pErr").textContent = e.message; });
+  };
+
+  if (token) api("/me").then(function (d) { $("whoami").textContent = d.admin.email; }).catch(function () {});
+  show();
+})();
+</script>
+</body>
+</html>

@@ -1,6 +1,7 @@
 "use strict";
 const bcrypt = require("bcryptjs");
-const { api, q, one, fail, audit, signToken, PERMISSIONS, str, bool, getSettings, maskSettings, saveUpload, removeUpload, isYmd } = require("../lib/core");
+const { api, q, one, fail, audit, signToken, PERMISSIONS, str, bool, getSettings, maskSettings, saveUpload, removeUpload, isYmd, currentTenantId } = require("../lib/core");
+const { ensureTenant, runRaw, accessError, getTenant, findLogin, assertLoginFree, reindexUser, removeUserLogins } = require("../lib/tenants");
 
 const attempts = new Map(); // simple brute-force protection: 6 failures / 15 min per email+ip
 function tooMany(key) { const a = attempts.get(key); return a && a.n >= 6 && Date.now() - a.t < 15 * 60 * 1000; }
@@ -12,18 +13,30 @@ api.post("/api/auth/login", null, async (ctx) => {
   if (!email || !password) throw fail(400, "Email and password are required.");
   const key = `${email}|${ctx.ip}`;
   if (tooMany(key)) throw fail(429, "Too many failed attempts. Please try again in 15 minutes.");
-  const u = await one("SELECT u.*, r.permissions FROM bb_users u LEFT JOIN bb_roles r ON r.name = u.role WHERE u.email = ?", [email]);
-  const ok = u && u.is_active && (await bcrypt.compare(password, u.password_hash));
-  if (!ok) {
+  // Which cafe does this email belong to?
+  const login = await findLogin("e:" + email);
+  if (!login) {
     failed(key);
-    await audit({ ip: ctx.ip, req: ctx.req }, { action: "Failed", module: "System", details: `Failed login attempt for ${email}`, level: "warning", user_name: email });
     throw fail(401, "Invalid email or password.");
   }
-  attempts.delete(key);
-  await q("UPDATE bb_users SET last_login = NOW() WHERE id = ?", [u.id]);
-  const user = { id: u.id, name: u.name, email: u.email, role: u.role };
-  await audit({ user, ip: ctx.ip, req: ctx.req }, { action: "Login", module: "System", details: "User login successful" });
-  return { token: signToken(user), user: { ...user, permissions: u.role === "admin" ? ["*"] : JSON.parse(u.permissions || "[]") } };
+  await ensureTenant(login.tenant_id);
+  return runRaw(login.tenant_id, async () => {
+    const u = await one("SELECT u.*, r.permissions FROM bb_users u LEFT JOIN bb_roles r ON r.name = u.role WHERE u.email = ?", [email]);
+    const ok = u && u.is_active && (await bcrypt.compare(password, u.password_hash));
+    if (!ok) {
+      failed(key);
+      await audit({ ip: ctx.ip, req: ctx.req }, { action: "Failed", module: "System", details: `Failed login attempt for ${email}`, level: "warning", user_name: email });
+      throw fail(401, "Invalid email or password.");
+    }
+    // Password is right: now tell the user if the cafe is suspended / subscription ended.
+    const blocked = accessError(await getTenant(login.tenant_id));
+    if (blocked) throw fail(403, blocked);
+    attempts.delete(key);
+    await q("UPDATE bb_users SET last_login = NOW() WHERE id = ?", [u.id]);
+    const user = { id: u.id, name: u.name, email: u.email, role: u.role };
+    await audit({ user, ip: ctx.ip, req: ctx.req }, { action: "Login", module: "System", details: "User login successful" });
+    return { token: signToken(user), user: { ...user, permissions: u.role === "admin" ? ["*"] : JSON.parse(u.permissions || "[]") } };
+  });
 });
 
 api.post("/api/auth/logout", "auth", async (ctx) => {
@@ -31,7 +44,14 @@ api.post("/api/auth/logout", "auth", async (ctx) => {
   return {};
 });
 
-api.get("/api/auth/me", "auth", async (ctx) => ({ user: { ...ctx.user, permissions: ctx.user.perms }, settings: maskSettings(await getSettings()) }));
+api.get("/api/auth/me", "auth", async (ctx) => {
+  const t = await getTenant(currentTenantId());
+  return {
+    user: { ...ctx.user, permissions: ctx.user.perms },
+    settings: maskSettings(await getSettings()),
+    tenant: t ? { id: t.id, slug: t.slug, name: t.name, plan: t.plan, subscription_ends_at: t.subscription_ends_at } : null,
+  };
+});
 
 /* ---------- users ---------- */
 api.get("/api/users", "staff", async () => ({
@@ -75,10 +95,12 @@ api.post("/api/users", "staff", async (ctx) => {
   const role = str(b.role, 50) || "cashier"; await roleExists(role);
   if (role === "waiter") await waiterCheck(v, 0);
   if (await one("SELECT id FROM bb_users WHERE email = ?", [v.email])) throw fail(409, "A user with this email already exists.");
+  await assertLoginFree(currentTenantId(), 0, { email: v.email, phone: v.phone, role });
   const hash = await bcrypt.hash(String(b.password), 10);
   const r = (await q("INSERT INTO bb_users (name, email, phone, password_hash, role, is_active) VALUES (?,?,?,?,?,?)", [v.name, v.email, v.phone, hash, role, bool(b.is_active, 1)]))[0] || {};
   const id = (await one("SELECT id FROM bb_users WHERE email = ?", [v.email])).id;
   await q(EXTRA_SQL, extraVals(extra, id));
+  await reindexUser(currentTenantId(), id);
   await audit(ctx, { action: "Created", module: "Users", details: `Created ${role} account "${v.name}"`, record_id: id, level: "warning" });
   return { __status: 201, id, message: "User created." };
 });
@@ -93,11 +115,13 @@ api.put("/api/users/:id", "staff", async (ctx) => {
   if (id === ctx.user.id && (!active || role !== old.role)) throw fail(400, "You cannot disable or change the role of your own account.");
   const dup = await one("SELECT id FROM bb_users WHERE email = ? AND id <> ?", [v.email, id]);
   if (dup) throw fail(409, "A user with this email already exists.");
+  await assertLoginFree(currentTenantId(), id, { email: v.email, phone: v.phone, role });
   const oldExtra = (await one("SELECT aadhaar_image, passbook_image, photo_image FROM bb_users WHERE id = ?", [id])) || {};
   const extra = staffExtra(b, oldExtra);
   await q("UPDATE bb_users SET name=?, email=?, phone=?, role=?, is_active=? WHERE id=?", [v.name, v.email, v.phone, role, active, id]);
   await q(EXTRA_SQL, extraVals(extra, id));
   if (b.password) await q("UPDATE bb_users SET password_hash = ? WHERE id = ?", [await bcrypt.hash(String(b.password), 10), id]);
+  await reindexUser(currentTenantId(), id);
   await audit(ctx, { action: "Updated", module: "Users", details: `Updated user "${v.name}"${b.password ? " (password changed)" : ""}`, record_id: id, old, neu: { name: v.name, email: v.email, role, is_active: active }, level: "warning" });
   return { message: "User updated." };
 });
@@ -112,6 +136,7 @@ api.delete("/api/users/:id", "staff", async (ctx) => {
     if (!other || Number(other.n) < 1) throw fail(400, "You cannot delete the last admin account.");
   }
   await q("DELETE FROM bb_users WHERE id = ?", [id]);
+  await removeUserLogins(currentTenantId(), id);
   removeUpload(u.aadhaar_image); removeUpload(u.passbook_image); removeUpload(u.photo_image);
   await audit(ctx, { action: "Deleted", module: "Users", details: `Deleted ${u.role} account "${u.name}" (${u.email})`, record_id: id, old: { name: u.name, email: u.email, role: u.role }, level: "critical" });
   return { message: "User deleted." };

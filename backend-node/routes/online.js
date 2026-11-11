@@ -2,6 +2,7 @@
 const crypto = require("crypto");
 const { pool, api, q, one, fail, audit, notify, getSettings, str } = require("../lib/core");
 const { PLATFORMS, normalize, pushStatus } = require("../lib/aggregators");
+const { runInTenant, getTenantBySlug } = require("../lib/tenants");
 
 const FLOW = { new: ["accepted", "rejected"], accepted: ["preparing", "rejected"], preparing: ["ready"], ready: ["dispatched"], dispatched: ["delivered"], delivered: [], rejected: [] };
 const safeEq = (a, b) => { const x = Buffer.from(String(a)), y = Buffer.from(String(b)); return x.length === y.length && crypto.timingSafeEqual(x, y); };
@@ -22,7 +23,7 @@ async function createOrder(platform, d, S) {
 }
 
 // ---- incoming webhook (called by Swiggy / Zomato, protected by a secret) ----
-api.post("/api/online/webhook/:platform", null, async (ctx) => {
+async function receiveWebhook(ctx) {
   const p = ctx.params.platform;
   if (!PLATFORMS[p]) throw fail(404, "Unknown platform.");
   const S = await getSettings();
@@ -33,6 +34,14 @@ api.post("/api/online/webhook/:platform", null, async (ctx) => {
   const d = normalize(p, ctx.body); d.raw = ctx.body;
   const r = await createOrder(p, d, S);
   return { __status: r.duplicate ? 200 : 201, id: r.id, duplicate: r.duplicate, message: r.duplicate ? "Order already received." : "Order received." };
+}
+// Webhook URL for each cafe:  /api/online/webhook/<cafe-slug>/<swiggy|zomato>
+// (the older  /api/online/webhook/<platform>?cafe=<cafe-slug>  form also works)
+api.post("/api/online/webhook/:slug/:platform", null, receiveWebhook);
+api.post("/api/online/webhook/:platform", null, async (ctx) => {
+  const t = await getTenantBySlug(ctx.query.cafe);
+  if (!t) throw fail(400, "Add ?cafe=<your-cafe-slug> to the webhook URL.");
+  return runInTenant(t.id, () => receiveWebhook(ctx));
 });
 
 // ---- staff side ----

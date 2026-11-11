@@ -12,7 +12,7 @@ dotenv.config({
   quiet: true,
 });
 
-const pool = mysql.createPool({
+const rawPool = mysql.createPool({
   host: process.env.DB_HOST || "localhost",
   port: Number(process.env.DB_PORT) || 3306,
   user: process.env.DB_USER || "root",
@@ -27,8 +27,28 @@ const pool = mysql.createPool({
 });
 
 // Make NOW(), CURDATE() and TIMESTAMP columns use the same timezone on every connection.
-pool.pool.on("connection", (conn) => {
+rawPool.pool.on("connection", (conn) => {
   conn.query("SET time_zone = '" + DB_TZ + "'");
 });
+
+// Every query goes through the cafe (tenant) layer: plain table names are rewritten to the
+// current cafe's own tables (see lib/tenantSql.js).
+const { als, rewrite } = require("../lib/tenantSql");
+const prep = (sql) => {
+  const store = als.getStore();
+  const tid = store ? store.tid : null;
+  if (sql && typeof sql === "object" && sql.sql) return { ...sql, sql: rewrite(sql.sql, tid) };
+  return rewrite(sql, tid);
+};
+
+const pool = {
+  query: (sql, params) => rawPool.query(prep(sql), params),
+  async getConnection() {
+    const c = await rawPool.getConnection();
+    const original = c.query.bind(c);
+    c.query = (sql, params) => original(prep(sql), params);
+    return c;
+  },
+};
 
 module.exports = pool;

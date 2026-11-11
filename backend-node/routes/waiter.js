@@ -2,6 +2,7 @@
 // Waiter mobile app: own login (mobile number + password), table list, menu and KOT sending.
 const bcrypt = require("bcryptjs");
 const { api, q, one, fail, audit, notify, signToken, getSettings, str, pool } = require("../lib/core");
+const { ensureTenant, runRaw, accessError, getTenant, findLogin } = require("../lib/tenants");
 const { saveOrder, OPEN_SQL } = require("./orders");
 
 const attempts = new Map();
@@ -13,18 +14,29 @@ api.post("/api/waiter/login", null, async (ctx) => {
   if (phone.length !== 10 || !password) throw fail(400, "Enter your 10-digit mobile number and password.");
   const key = `w:${phone}|${ctx.ip}`;
   if (tooMany(key)) throw fail(429, "Too many failed attempts. Please try again in 15 minutes.");
-  const u = await one("SELECT u.*, r.permissions FROM bb_users u LEFT JOIN bb_roles r ON r.name = u.role WHERE u.role = 'waiter' AND RIGHT(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(u.phone, ' ', ''), '-', ''), '+', ''), '(', ''), ')', ''), 10) = ?", [phone]);
-  if (!u) console.warn(`[waiter login] No user with role 'waiter' and phone ${phone}. Create it from Admin > Waiters.`);
-  if (!u || !u.is_active || !(await bcrypt.compare(password, u.password_hash))) {
+  const login = await findLogin("p:" + phone);
+  if (!login) {
     failed(key);
-    await audit({ ip: ctx.ip, req: ctx.req }, { action: "Failed", module: "System", details: `Failed waiter login for ${phone}`, level: "warning", user_name: phone });
-    throw fail(401, u && !u.is_active ? "This account is disabled. Please contact the manager." : "Wrong mobile number or password.");
+    console.warn(`[waiter login] No waiter with mobile ${phone}. Create it from Admin > Waiters.`);
+    throw fail(401, "Wrong mobile number or password.");
   }
-  attempts.delete(key);
-  await q("UPDATE bb_users SET last_login = NOW() WHERE id = ?", [u.id]);
-  const user = { id: u.id, name: u.name, email: u.email, role: u.role };
-  await audit({ user, ip: ctx.ip, req: ctx.req }, { action: "Login", module: "System", details: "Waiter login successful" });
-  return { token: signToken(user), user: { ...user, permissions: JSON.parse(u.permissions || "[]") } };
+  await ensureTenant(login.tenant_id);
+  return runRaw(login.tenant_id, async () => {
+    const u = await one("SELECT u.*, r.permissions FROM bb_users u LEFT JOIN bb_roles r ON r.name = u.role WHERE u.role = 'waiter' AND RIGHT(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(u.phone, ' ', ''), '-', ''), '+', ''), '(', ''), ')', ''), 10) = ?", [phone]);
+    if (!u) console.warn(`[waiter login] No user with role 'waiter' and phone ${phone}. Create it from Admin > Waiters.`);
+    if (!u || !u.is_active || !(await bcrypt.compare(password, u.password_hash))) {
+      failed(key);
+      await audit({ ip: ctx.ip, req: ctx.req }, { action: "Failed", module: "System", details: `Failed waiter login for ${phone}`, level: "warning", user_name: phone });
+      throw fail(401, u && !u.is_active ? "This account is disabled. Please contact the manager." : "Wrong mobile number or password.");
+    }
+    const blocked = accessError(await getTenant(login.tenant_id));
+    if (blocked) throw fail(403, blocked);
+    attempts.delete(key);
+    await q("UPDATE bb_users SET last_login = NOW() WHERE id = ?", [u.id]);
+    const user = { id: u.id, name: u.name, email: u.email, role: u.role };
+    await audit({ user, ip: ctx.ip, req: ctx.req }, { action: "Login", module: "System", details: "Waiter login successful" });
+    return { token: signToken(user), user: { ...user, permissions: JSON.parse(u.permissions || "[]") } };
+  });
 });
 
 api.get("/api/waiter/home", "waiter", async (ctx) => {
