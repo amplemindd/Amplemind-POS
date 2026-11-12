@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Icon from "../lib/icons";
-import { API_URL, img, money } from "../lib/api";
+import { API_URL, ago, img, money } from "../lib/api";
 
 /* ------------------------------------------------------------------ */
 /*  Customer QR ordering page                                          */
@@ -42,6 +42,39 @@ const writeNumber = (key, value) => {
     /* storage is optional */
   }
 };
+
+const readJson = (key, fallback) => {
+  try {
+    const v = JSON.parse(localStorage.getItem(key) || "null");
+    return v == null ? fallback : v;
+  } catch {
+    return fallback;
+  }
+};
+const writeJson = (key, value) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    /* storage is optional */
+  }
+};
+
+// quick requests shown under "Need anything?"
+const NEEDS = [
+  { id: "water", label: "Water", icon: "💧" },
+  { id: "cutlery", label: "Cutlery", icon: "🍴" },
+  { id: "tissues", label: "Tissues", icon: "🧻" },
+  { id: "other", label: "Other", icon: "🙋" },
+];
+
+// order stages: they follow the order status that staff set in the POS (pending > preparing > ready > completed)
+const STAGES = [
+  { key: "pending", step: "Order received", head: "Order received" },
+  { key: "preparing", step: "In the kitchen", head: "Preparing" },
+  { key: "ready", step: "Ready to serve", head: "Ready to serve" },
+  { key: "completed", step: "Served", head: "Served" },
+];
+const TRACK_HOURS = 6; // a table's order is remembered on the phone for 6 hours
 
 // colours for categories that have no picture
 const TILE_COLORS = [
@@ -125,12 +158,13 @@ function Bell({ left, ringing, busy, onPress, compact }) {
       className={`cx-bell ${compact ? "compact" : ""} ${ringing ? "ringing" : ""} ${waiting ? "waiting" : ""}`}
       onClick={onPress}
       disabled={busy || waiting}
-      aria-label={waiting ? `Call again in ${left} seconds` : "Call cashier"}
-      title={waiting ? `Call again in ${left} seconds` : "Call cashier"}
+      aria-label={waiting ? `Call again in ${left} seconds` : "Call staff"}
+      title={waiting ? `Call again in ${left} seconds` : "Call staff"}
     >
       <span className="cx-bell-ic">
         <Icon n="bell" size={compact ? 25 : 28} />
       </span>
+      <span className="cx-bell-label">{waiting ? `${left}s` : "Call staff"}</span>
     </button>
   );
 }
@@ -146,7 +180,6 @@ export default function CustomerOrder({ token }) {
 
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
-  const [order, setOrder] = useState(null);
   const [showCheckout, setShowCheckout] = useState(false);
 
   const [customerName, setCustomerName] = useState("");
@@ -162,6 +195,26 @@ export default function CustomerOrder({ token }) {
   });
   const [now, setNow] = useState(Date.now());
   const [ringEnd, setRingEnd] = useState(0);
+
+  // order tracking + extra actions
+  const trackKey = `bb_track_${token}`;
+  const lastKey = `bb_last_${token}`;
+  const [trackId, setTrackId] = useState(() => {
+    const saved = readJson(`bb_track_${token}`, null);
+    return saved && Date.now() - saved.at < TRACK_HOURS * 3600 * 1000 ? saved.id : 0;
+  });
+  const [live, setLive] = useState(null); // latest order status from the server
+  const [showTrack, setShowTrack] = useState(false);
+  const [justPlaced, setJustPlaced] = useState(false);
+  const [showMore, setShowMore] = useState(false);
+  const [panel, setPanel] = useState(""); // "" | "request" | "feedback" | "info"
+  const [needs, setNeeds] = useState([]);
+  const [needNote, setNeedNote] = useState("");
+  const [reqText, setReqText] = useState("");
+  const [rating, setRating] = useState(0);
+  const [fbText, setFbText] = useState("");
+  const [fbDone, setFbDone] = useState(false);
+  const [fbBusy, setFbBusy] = useState(false);
 
   const pushedRef = useRef(false);
 
@@ -184,6 +237,35 @@ export default function CustomerOrder({ token }) {
       active = false;
     };
   }, [token]);
+
+  // ---- live order status (refreshes every 4 seconds until the order is finished) ----
+  const finished = !!live && ["completed", "cancelled"].includes(live.status);
+  useEffect(() => {
+    if (!trackId || finished) return undefined;
+    let on = true;
+    const load = () =>
+      request(`/public/qr/${token}/order/${trackId}`)
+        .then((r) => {
+          if (on) setLive(r.order);
+        })
+        .catch((e) => {
+          if (on && /not found/i.test(e.message || "")) {
+            setTrackId(0);
+            setLive(null);
+            try {
+              localStorage.removeItem(trackKey);
+            } catch {
+              /* storage is optional */
+            }
+          }
+        });
+    load();
+    const id = setInterval(load, 4000);
+    return () => {
+      on = false;
+      clearInterval(id);
+    };
+  }, [trackId, finished, token, trackKey]);
 
   // ---- auto hide notice ----
   useEffect(() => {
@@ -280,6 +362,11 @@ export default function CustomerOrder({ token }) {
   const place = async () => {
     if (!count || busy) return;
 
+    if (!customerName.trim()) {
+      setNotice("Please enter your name to place the order.");
+      return;
+    }
+
     if (customerPhone && !/^[0-9]{10}$/.test(customerPhone)) {
       setNotice("Please enter a valid 10-digit mobile number.");
       return;
@@ -298,11 +385,33 @@ export default function CustomerOrder({ token }) {
         },
       });
 
-      setOrder(result.order);
+      const o = result.order;
+      writeJson(lastKey, lines.map((p) => ({ id: p.id, qty: p.qty })));
+      writeJson(trackKey, { id: o.id, at: Date.now() });
+      setTrackId(o.id);
+      setLive((prev) =>
+        prev && prev.id === o.id
+          ? { ...prev, total: o.total }
+          : {
+              id: o.id,
+              bill_no: o.bill_no,
+              status: "pending",
+              total: o.total,
+              table: o.table,
+              created_at: new Date().toISOString(),
+              items: lines.map((p) => ({
+                product_id: p.id,
+                product_name: p.name,
+                qty: p.qty,
+                line_total: p.price * p.qty,
+              })),
+            },
+      );
       setCart({});
       setNote("");
       setShowCheckout(false);
-      setNotice("Your order has been sent to the cashier.");
+      setJustPlaced(true);
+      setShowTrack(true);
       setSearch("");
       if (pushedRef.current) window.history.back();
       else setActiveCat(null);
@@ -315,15 +424,15 @@ export default function CustomerOrder({ token }) {
   };
 
   // ---- call cashier (once every 15 seconds, bell rings for 3 seconds) ----
-  const callCashier = async () => {
-    if (bellBusy || left > 0) return;
+  const callCashier = async (extra = {}) => {
+    if (bellBusy || left > 0) return false;
 
     setBellBusy(true);
 
     try {
       const result = await request(`/public/qr/${token}/call`, {
         method: "POST",
-        body: {},
+        body: extra,
       });
 
       const t = Date.now();
@@ -332,7 +441,8 @@ export default function CustomerOrder({ token }) {
       setNow(t);
       setUntil(end);
       setRingEnd(t + RING_ANIMATION_MS);
-      setNotice(result.message || "Cashier has been notified.");
+      setNotice(result.message || "Staff has been notified.");
+      return true;
     } catch (e) {
       // server also enforces the wait, e.g. "Please wait 9s before calling again."
       const wait = /(\d+)\s*s/i.exec(e.message || "");
@@ -343,8 +453,109 @@ export default function CustomerOrder({ token }) {
         setUntil(end);
       }
       setNotice(e.message);
+      return false;
     } finally {
       setBellBusy(false);
+    }
+  };
+
+  // ---- extra customer actions ----
+  const toggleNeed = (id) =>
+    setNeeds((list) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id]));
+
+  const sendNeeds = async () => {
+    if (!needs.length) {
+      setNotice("Please choose what you need.");
+      return;
+    }
+    if (needs.includes("other") && !needNote.trim()) {
+      setNotice("Please type what you need in the box.");
+      return;
+    }
+    const ok = await callCashier({ needs, note: needNote.trim() });
+    if (ok) {
+      setNeeds([]);
+      setNeedNote("");
+    }
+  };
+
+  const requestBill = () => callCashier({ kind: "bill" });
+
+  const sendSpecial = async () => {
+    if (!reqText.trim()) {
+      setNotice("Please type your request.");
+      return;
+    }
+    const ok = await callCashier({ kind: "request", note: reqText.trim() });
+    if (ok) {
+      setReqText("");
+      setPanel("");
+    }
+  };
+
+  const openFeedback = () => {
+    setShowMore(false);
+    setShowTrack(false);
+    setJustPlaced(false);
+    setRating(0);
+    setFbText("");
+    setFbDone(false);
+    setPanel("feedback");
+  };
+
+  const submitFeedback = async () => {
+    if (!rating) {
+      setNotice("Please tap a star to rate us.");
+      return;
+    }
+    setFbBusy(true);
+    try {
+      await request(`/public/qr/${token}/feedback`, {
+        method: "POST",
+        body: { rating, comment: fbText.trim(), order_id: trackId || undefined },
+      });
+      setFbDone(true);
+    } catch (e) {
+      setNotice(e.message);
+    } finally {
+      setFbBusy(false);
+    }
+  };
+
+  const reorder = () => {
+    const saved = readJson(lastKey, []);
+    const valid = saved.filter((l) => (data?.products || []).some((p) => p.id === l.id));
+    if (!valid.length) {
+      setNotice("No previous order found on this phone.");
+      return;
+    }
+    setCart((c) => {
+      const next = { ...c };
+      valid.forEach((l) => {
+        next[l.id] = Math.min(99, (next[l.id] || 0) + l.qty);
+      });
+      return next;
+    });
+    setShowMore(false);
+    setShowCheckout(true);
+  };
+
+  const openTrack = () => {
+    setJustPlaced(false);
+    setShowTrack(true);
+  };
+  const closeTrack = () => {
+    setShowTrack(false);
+    setJustPlaced(false);
+  };
+  const hideOrder = () => {
+    closeTrack();
+    setTrackId(0);
+    setLive(null);
+    try {
+      localStorage.removeItem(trackKey);
+    } catch {
+      /* storage is optional */
     }
   };
 
@@ -377,13 +588,18 @@ export default function CustomerOrder({ token }) {
     );
   }
 
+  const stageIdx = live ? Math.max(0, STAGES.findIndex((st) => st.key === live.status)) : 0;
+  const cancelled = live?.status === "cancelled";
+  const pct = Math.round(((stageIdx + 1) / STAGES.length) * 100);
+  const callBlocked = bellBusy || left > 0;
+
   const bell = (compact) => (
     <Bell
       compact={compact}
       left={left}
       ringing={ringing}
       busy={bellBusy}
-      onPress={callCashier}
+      onPress={() => callCashier()}
     />
   );
 
@@ -392,7 +608,7 @@ export default function CustomerOrder({ token }) {
       <div className="cx-callnote" role="status">
         <Icon n="check" size={16} />
         <span>
-          Cashier has been called. You can call again in <b>{left}s</b>
+          Staff has been called. You can call again in <b>{left}s</b>
         </span>
       </div>
     ) : null;
@@ -480,17 +696,46 @@ export default function CustomerOrder({ token }) {
           <div className="cx-sheet-top">
             {callNote}
 
-            {order && (
-              <div className="cx-confirm">
-                <Icon n="check" size={22} />
-                <div>
-                  <b>Order received · {order.bill_no}</b>
-                  <span>
-                    Table {order.table} · {money(order.total)}
+            {live && (
+              <button className={`cx-track-card ${cancelled ? "bad" : ""}`} onClick={openTrack}>
+                <span className="cx-tc-ic">{cancelled ? "⚠️" : stageIdx >= 3 ? "✅" : "🍽️"}</span>
+                <span className="cx-tc-tx">
+                  <b>
+                    {cancelled ? "Order cancelled" : STAGES[stageIdx].head} · {live.bill_no}
+                  </b>
+                  <small>
+                    {cancelled
+                      ? "Tap for details"
+                      : "Tap to track your order, call staff or ask for the bill"}
+                  </small>
+                </span>
+                <Icon n="arrowr" size={18} />
+                {!cancelled && (
+                  <span className="cx-tc-bar">
+                    <span style={{ width: `${pct}%` }} />
                   </span>
-                </div>
-              </div>
+                )}
+              </button>
             )}
+
+            <div className="cx-quick">
+              <button onClick={() => callCashier()} disabled={callBlocked}>
+                <span>🛎️</span>
+                Call Waiter
+              </button>
+              <button onClick={requestBill} disabled={callBlocked}>
+                <span>🧾</span>
+                Request Bill
+              </button>
+              <button onClick={openFeedback}>
+                <span>⭐</span>
+                Rate Us
+              </button>
+              <button onClick={() => setShowMore(true)}>
+                <span>⋯</span>
+                More
+              </button>
+            </div>
 
             <h2 className="cx-hello">What would you like today?</h2>
             <p className="cx-hello-sub">Pick a category to see everything in it.</p>
@@ -648,17 +893,19 @@ export default function CustomerOrder({ token }) {
             </div>
 
             <div className="cx-details">
-              <h3>Your details (optional)</h3>
+              <h3>Your details</h3>
               <input
                 type="text"
-                placeholder="Your name"
+                placeholder="Your name *"
+                required
+                aria-required="true"
                 maxLength={100}
                 value={customerName}
                 onChange={(e) => setCustomerName(e.target.value)}
               />
               <input
                 type="tel"
-                placeholder="10-digit mobile number"
+                placeholder="10-digit mobile number (optional)"
                 maxLength={10}
                 value={customerPhone}
                 onChange={(e) =>
@@ -689,6 +936,265 @@ export default function CustomerOrder({ token }) {
             </button>
 
             <p className="cx-note">Please pay at the cashier after your meal.</p>
+          </section>
+        </div>
+      )}
+
+      {/* ================= ORDER TRACKING ================= */}
+      {showTrack && (
+        <div className="cx-ov" onClick={closeTrack}>
+          <section className="cx-sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="cx-sheet-h">
+              <div>
+                <h2>{justPlaced ? "Order Placed!" : "Your Order"}</h2>
+                <p>
+                  Table {data.table.name}
+                  {live ? ` · ${live.bill_no}` : ""}
+                </p>
+              </div>
+              <button aria-label="Close" onClick={closeTrack}>
+                <Icon n="x" size={20} />
+              </button>
+            </div>
+
+            {justPlaced && (
+              <div className="cx-okbox">
+                <span className="cx-okmark">
+                  <Icon n="check" size={30} />
+                </span>
+                <p>Your order has been sent to the kitchen. We will serve it at your table shortly.</p>
+              </div>
+            )}
+
+            {!live ? (
+              <div className="cx-center-sm">
+                <div className="cx-spinner" />
+              </div>
+            ) : cancelled ? (
+              <div className="cx-cancelled">
+                <b>This order was cancelled</b>
+                {live.cancel_reason && <small>Reason: {live.cancel_reason}</small>}
+                <small>Please ask our staff if you need any help.</small>
+              </div>
+            ) : (
+              <div className="cx-status">
+                <div className="cx-st-h">
+                  <h3>{STAGES[stageIdx].head}</h3>
+                  <small>Ordered {ago(live.created_at)}</small>
+                </div>
+                <div className="cx-bar-track">
+                  <span style={{ width: `${pct}%` }} />
+                </div>
+                <ol className="cx-steps">
+                  {STAGES.map((st, i) => {
+                    const done = i < stageIdx || stageIdx === STAGES.length - 1;
+                    const cur = i === stageIdx && !done;
+                    return (
+                      <li key={st.key} className={done ? "done" : cur ? "cur" : ""}>
+                        <span className="cx-dot">{done ? <Icon n="check" size={13} /> : null}</span>
+                        {st.step}
+                      </li>
+                    );
+                  })}
+                </ol>
+              </div>
+            )}
+
+            {live && !cancelled && live.items?.length > 0 && (
+              <div className="cx-sum">
+                {live.items.map((i) => (
+                  <div key={`${i.product_id}-${i.product_name}`}>
+                    <span>
+                      {i.product_name} × {i.qty}
+                    </span>
+                    <b>{money(i.line_total)}</b>
+                  </div>
+                ))}
+                <div className="cx-sum-t">
+                  <span>Total</span>
+                  <b>{money(live.total)}</b>
+                </div>
+              </div>
+            )}
+
+            <div className="cx-need">
+              <h3>Need anything?</h3>
+              <div className="cx-need-grid">
+                {NEEDS.map((n) => (
+                  <button
+                    key={n.id}
+                    className={needs.includes(n.id) ? "on" : ""}
+                    onClick={() => toggleNeed(n.id)}
+                  >
+                    <span>{n.icon}</span>
+                    {n.label}
+                  </button>
+                ))}
+              </div>
+              {needs.includes("other") && (
+                <input
+                  type="text"
+                  maxLength={100}
+                  placeholder="Tell us what you need"
+                  value={needNote}
+                  onChange={(e) => setNeedNote(e.target.value)}
+                />
+              )}
+            </div>
+
+            <button
+              className="cx-call-big"
+              disabled={callBlocked}
+              onClick={() => (needs.length ? sendNeeds() : callCashier())}
+            >
+              <span>🛎️</span>
+              {left > 0
+                ? `Call again in ${left}s`
+                : needs.length
+                  ? `Send request (${needs.length})`
+                  : "Call staff"}
+            </button>
+
+            <div className="cx-two">
+              <button onClick={requestBill} disabled={callBlocked}>
+                🧾 Request Bill
+              </button>
+              <button onClick={openFeedback}>⭐ Rate Us</button>
+            </div>
+
+            <button className="cx-linkbtn" onClick={closeTrack}>
+              + Order more items
+            </button>
+            {finished && (
+              <button className="cx-linkbtn muted" onClick={hideOrder}>
+                Hide this order
+              </button>
+            )}
+          </section>
+        </div>
+      )}
+
+      {/* ================= MORE OPTIONS ================= */}
+      {showMore && (
+        <div className="cx-ov" onClick={() => setShowMore(false)}>
+          <section className="cx-sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="cx-sheet-h">
+              <div>
+                <h2>More Options</h2>
+                <p>Table {data.table.name}</p>
+              </div>
+              <button aria-label="Close" onClick={() => setShowMore(false)}>
+                <Icon n="x" size={20} />
+              </button>
+            </div>
+
+            <div className="cx-more">
+              {[
+                ["🛎️", "Call Waiter", "Request staff assistance", () => { setShowMore(false); callCashier(); }],
+                ["🧾", "Request Bill", "Ask for your bill", () => { setShowMore(false); requestBill(); }],
+                ["⭐", "Feedback / Rate", "Share your experience", openFeedback],
+                ["📝", "Add Special Request", "Extra sauce, no spice, etc.", () => { setShowMore(false); setPanel("request"); }],
+                ["🔁", "Reorder", "Order again from your last order", reorder],
+                ["📍", "Restaurant Info", "Contact and location", () => { setShowMore(false); setPanel("info"); }],
+              ].map(([icon, title, sub, fn]) => (
+                <button key={title} onClick={fn}>
+                  <span className="cx-more-ic">{icon}</span>
+                  <span className="cx-more-tx">
+                    <b>{title}</b>
+                    <small>{sub}</small>
+                  </span>
+                  <Icon n="arrowr" size={16} />
+                </button>
+              ))}
+            </div>
+          </section>
+        </div>
+      )}
+
+      {/* ================= REQUEST / FEEDBACK / INFO ================= */}
+      {panel && (
+        <div className="cx-ov" onClick={() => setPanel("")}>
+          <section className="cx-sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="cx-sheet-h">
+              <div>
+                <h2>
+                  {panel === "request"
+                    ? "Special Request"
+                    : panel === "feedback"
+                      ? "Rate Your Experience"
+                      : "Restaurant Info"}
+                </h2>
+                <p>Table {data.table.name}</p>
+              </div>
+              <button aria-label="Close" onClick={() => setPanel("")}>
+                <Icon n="x" size={20} />
+              </button>
+            </div>
+
+            {panel === "request" && (
+              <div className="cx-details">
+                <textarea
+                  rows={3}
+                  maxLength={200}
+                  placeholder="e.g. Extra sauce, less spicy, please bring a high chair..."
+                  value={reqText}
+                  onChange={(e) => setReqText(e.target.value)}
+                />
+                <button className="cx-place" onClick={sendSpecial} disabled={callBlocked}>
+                  {left > 0 ? `Try again in ${left}s` : "Send to staff"}
+                </button>
+              </div>
+            )}
+
+            {panel === "feedback" &&
+              (fbDone ? (
+                <div className="cx-okbox">
+                  <span className="cx-okmark">
+                    <Icon n="check" size={30} />
+                  </span>
+                  <b>Thank you for your feedback!</b>
+                  <p>We are glad to have you with us.</p>
+                </div>
+              ) : (
+                <div className="cx-details">
+                  <div className="cx-stars" role="radiogroup" aria-label="Rating">
+                    {[1, 2, 3, 4, 5].map((n) => (
+                      <button
+                        key={n}
+                        className={n <= rating ? "on" : ""}
+                        onClick={() => setRating(n)}
+                        aria-label={`${n} star${n > 1 ? "s" : ""}`}
+                      >
+                        ★
+                      </button>
+                    ))}
+                  </div>
+                  <textarea
+                    rows={3}
+                    maxLength={300}
+                    placeholder="Tell us more (optional)"
+                    value={fbText}
+                    onChange={(e) => setFbText(e.target.value)}
+                  />
+                  <button className="cx-place" onClick={submitFeedback} disabled={fbBusy}>
+                    {fbBusy ? "Sending..." : "Submit Feedback"}
+                  </button>
+                </div>
+              ))}
+
+            {panel === "info" && (
+              <div className="cx-info">
+                <h3>{data.restaurant}</h3>
+                {data.tagline && <p>{data.tagline}</p>}
+                {data.address && <div>📍 {data.address}</div>}
+                {data.phone && (
+                  <div>
+                    📞 <a href={`tel:${data.phone}`}>{data.phone}</a>
+                  </div>
+                )}
+                {!data.address && !data.phone && <p>Please ask our staff for more information.</p>}
+              </div>
+            )}
           </section>
         </div>
       )}
@@ -738,13 +1244,15 @@ const RAW_CSS = `
 /* bell: icon only, transparent background, no border or box */
 .cx-bell{
   position:relative;
-  flex:0 0 40px;
-  width:40px;
-  height:40px;
+  flex:0 0 auto;
+  min-width:44px;
+  min-height:44px;
   display:flex;
+  flex-direction:column;
   align-items:center;
   justify-content:center;
-  padding:0!important;
+  gap:2px;
+  padding:0 2px!important;
   color:#fff!important;
   background:transparent!important;
   border:0!important;
@@ -755,10 +1263,25 @@ const RAW_CSS = `
 .cx-bell:active:not(:disabled){transform:scale(.92)}
 .cx-bell:disabled{background:transparent!important;opacity:.65}
 .cx-bell-ic{display:grid;place-items:center;transform-origin:50% 12%}
+.cx-bell-label{font-size:9px;font-weight:700;line-height:1;letter-spacing:.3px;white-space:nowrap;opacity:.9}
 .cx-bell.waiting{cursor:default}
 .cx-bell.waiting .cx-bell-ic{opacity:.6}
+/* idle: small vibration-like shake every couple of seconds so customers notice the bell */
+.cx-bell:not(.waiting):not(.ringing) .cx-bell-ic{animation:cx-idle 2.6s ease-in-out infinite}
+@keyframes cx-idle{
+  0%,60%,100%{transform:rotate(0)}
+  64%{transform:rotate(14deg)}
+  68%{transform:rotate(-14deg)}
+  72%{transform:rotate(11deg)}
+  76%{transform:rotate(-11deg)}
+  80%{transform:rotate(7deg)}
+  84%{transform:rotate(-7deg)}
+  88%{transform:rotate(3deg)}
+  92%{transform:rotate(-3deg)}
+}
 .cx-bell.ringing .cx-bell-ic{animation:cx-ring .9s ease-in-out infinite}
 @keyframes cx-ring{0%,100%{transform:rotate(0)}10%{transform:rotate(18deg)}20%{transform:rotate(-18deg)}30%{transform:rotate(15deg)}40%{transform:rotate(-15deg)}50%{transform:rotate(10deg)}60%{transform:rotate(-10deg)}70%{transform:rotate(5deg)}80%{transform:rotate(-5deg)}90%{transform:rotate(2deg)}}
+@media (prefers-reduced-motion:reduce){.cx-bell:not(.waiting):not(.ringing) .cx-bell-ic{animation:none}}
 .cx-bell.compact{color:var(--cx-g)!important}
 
 /* Square corners throughout the customer QR ordering page */
@@ -917,6 +1440,76 @@ const RAW_CSS = `
 .cx-foot{padding:22px 16px 8px;text-align:center;color:var(--cx-mu)}
 .cx-foot p{font-size:13.5px;font-weight:600}
 .cx-foot small{font-size:11.5px;opacity:.8}
+
+
+/* ---- quick actions + order tracking ---- */
+.cx-quick{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:0 0 16px}
+.cx-quick button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;min-height:72px;padding:10px 4px;font-size:12px;font-weight:700;text-align:center;color:var(--cx-g);background:var(--cx-card);border:1px solid var(--cx-bd);box-shadow:0 2px 8px rgba(20,83,45,.07)}
+.cx-quick button span{font-size:23px;line-height:1}
+.cx-quick button:active:not(:disabled){transform:scale(.96)}
+.cx-quick button:disabled{opacity:.55}
+.cx-track-card{position:relative;width:100%;display:flex;align-items:center;gap:12px;margin:0 0 12px;padding:13px 14px 17px;color:var(--cx-g);background:linear-gradient(135deg,#e3f3e9,#f7fbf8);border:1px solid #cfe5d6;text-align:left}
+.cx-track-card.bad{color:#b42318;background:#fdecea;border-color:#f6c7c2}
+.cx-tc-ic{font-size:26px;line-height:1}
+.cx-tc-tx{flex:1;min-width:0}
+.cx-tc-tx b{display:block;font-size:15px}
+.cx-tc-tx small{display:block;font-size:12px;color:var(--cx-mu)}
+.cx-tc-bar{position:absolute;left:0;right:0;bottom:0;height:4px;background:rgba(20,83,45,.12)}
+.cx-tc-bar span{display:block;height:100%;background:var(--cx-g);transition:width .6s}
+.cx-okbox{display:flex;flex-direction:column;align-items:center;gap:8px;margin:2px 0 14px;text-align:center;color:var(--cx-mu);font-size:14px}
+.cx-okbox b{color:var(--cx-tx);font-size:17px}
+.cx-okmark{width:62px;height:62px;display:grid;place-items:center;color:#fff;background:linear-gradient(135deg,#2f8f55,#14532d);box-shadow:0 8px 20px rgba(20,83,45,.3);animation:cx-pop .45s ease-out}
+@keyframes cx-pop{0%{transform:scale(.4);opacity:0}70%{transform:scale(1.12)}100%{transform:scale(1);opacity:1}}
+.cx-center-sm{display:grid;place-items:center;padding:22px}
+.cx-status{padding:14px;background:var(--cx-bg);border:1px solid var(--cx-bd)}
+.cx-st-h{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:10px}
+.cx-st-h h3{font-size:22px;font-weight:800;color:var(--cx-tx)}
+.cx-st-h small{color:var(--cx-mu);font-size:12px}
+.cx-bar-track{height:8px;margin-bottom:14px;background:#dbe7de}
+.cx-bar-track span{display:block;height:100%;background:linear-gradient(90deg,#f5b301,#2f8f55);transition:width .6s}
+.cx-steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px}
+.cx-steps li{display:flex;align-items:center;gap:10px;font-weight:600;color:#a3ada6}
+.cx-steps li.done{color:var(--cx-g)}
+.cx-steps li.cur{color:var(--cx-tx);font-weight:800}
+.cx-dot{width:22px;height:22px;display:grid;place-items:center;color:#fff;background:#fff;border:2px solid #cfd8d2}
+.cx-steps li.done .cx-dot{background:var(--cx-g);border-color:var(--cx-g)}
+.cx-steps li.cur .cx-dot{background:#f5b301;border-color:#f5b301;animation:cx-pulse 1.4s infinite}
+@keyframes cx-pulse{0%{box-shadow:0 0 0 0 rgba(245,179,1,.6)}70%{box-shadow:0 0 0 9px rgba(245,179,1,0)}100%{box-shadow:0 0 0 0 rgba(245,179,1,0)}}
+.cx-cancelled{display:flex;flex-direction:column;gap:4px;padding:14px;color:#b42318;background:#fdecea;border:1px solid #f6c7c2}
+.cx-cancelled small{color:#7a271a}
+.cx-sum{margin-top:12px;padding:10px 14px;border:1px solid var(--cx-bd)}
+.cx-sum > div{display:flex;justify-content:space-between;gap:10px;padding:5px 0;font-size:14px}
+.cx-sum-t{margin-top:4px;padding-top:9px!important;border-top:1px dashed var(--cx-bd);font-weight:800}
+.cx-sum-t b{color:var(--cx-g);font-size:17px}
+.cx-need{margin-top:16px}
+.cx-need h3{margin-bottom:9px;font-size:16px;font-weight:800}
+.cx-need-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.cx-need-grid button{display:flex;align-items:center;gap:10px;min-height:50px;padding:0 14px;font-weight:700;background:var(--cx-card);border:1px solid var(--cx-bd)}
+.cx-need-grid button span{font-size:20px}
+.cx-need-grid button.on{background:#fff3c4;border:2px solid var(--cx-gd)}
+.cx-need > input{width:100%;height:46px;margin-top:8px;padding:0 14px;font:inherit;color:var(--cx-tx);background:var(--cx-bg);border:1px solid var(--cx-bd);outline:0}
+.cx-need > input:focus{border-color:var(--cx-g)}
+.cx-call-big{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;margin-top:14px;padding:16px;font-size:17px;font-weight:800;color:#fff;background:var(--cx-g);text-align:center}
+.cx-call-big span{font-size:22px}
+.cx-call-big:disabled{opacity:.6}
+.cx-two{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.cx-two button{padding:13px 8px;font-weight:700;text-align:center;color:var(--cx-g);background:var(--cx-gl);border:1px solid #cfe5d6}
+.cx-two button:disabled{opacity:.55}
+.cx-linkbtn{width:100%;margin-top:6px;padding:12px;font-weight:700;text-align:center;color:var(--cx-g)}
+.cx-linkbtn.muted{color:var(--cx-mu);font-weight:600;font-size:13px}
+.cx-more{display:flex;flex-direction:column}
+.cx-more > button{display:flex;align-items:center;gap:12px;padding:12px 4px;border-bottom:1px solid var(--cx-bd);color:var(--cx-mu)}
+.cx-more-ic{width:42px;height:42px;display:grid;place-items:center;flex:none;font-size:21px;background:var(--cx-gl)}
+.cx-more-tx{flex:1;min-width:0}
+.cx-more-tx b{display:block;color:var(--cx-tx);font-size:15px}
+.cx-more-tx small{display:block;font-size:12px;color:var(--cx-mu)}
+.cx-stars{display:flex;justify-content:center;gap:6px}
+.cx-stars button{font-size:40px;line-height:1;color:#d3d9d5;padding:0 4px;text-align:center}
+.cx-stars button.on{color:#f5b301}
+.cx-info{display:flex;flex-direction:column;gap:10px;font-size:15px}
+.cx-info h3{font-size:19px;font-weight:800}
+.cx-info p{color:var(--cx-mu)}
+.cx-info a{color:var(--cx-g);font-weight:700}
 
 @media (min-width:700px){
   .cx{max-width:560px;margin:0 auto;box-shadow:0 0 0 1px var(--cx-bd)}

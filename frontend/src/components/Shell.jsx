@@ -8,7 +8,7 @@ import {
   useFetch,
   usePath,
 } from "../lib/store";
-import { api, fmtTime, img, money, ago, TYPES } from "../lib/api";
+import { api, img, money, ago, TYPES } from "../lib/api";
 import { SafeImg, useClickAway } from "../lib/ui";
 import { KotAutoPrint } from "./Receipt";
 import PlatIcon from "./PlatIcon";
@@ -77,7 +77,6 @@ export default function Shell({ admin, children }) {
   const [drawer, setDrawer] = useState(false);
   const [bell, setBell] = useState(false);
   const [umenu, setUmenu] = useState(false);
-  const [now, setNow] = useState(new Date());
   const [bump, setBump] = useState(0);
   const [shake, setShake] = useState(false);
   const [ordMenu, setOrdMenu] = useState("");
@@ -85,10 +84,6 @@ export default function Shell({ admin, children }) {
   const last = useRef(0);
   const reload = useCallback(() => setBump((b) => b + 1), []);
 
-  useEffect(() => {
-    const t = setInterval(() => setNow(new Date()), 30000);
-    return () => clearInterval(t);
-  }, []);
   useEffect(() => {
     setSearch("");
     setDrawer(false);
@@ -107,9 +102,73 @@ export default function Shell({ admin, children }) {
     5000,
   );
   const cats = useFetch(admin ? (can("pos") ? "/categories" : "") : "/categories", { pos: 1 }, [bump], 60000);
-  const online = useFetch("/online/summary", null, [bump], 6000);
-  const kots = useFetch("/kots/latest", null, [bump], 6000);
-  const qrEvents = useFetch(can("pos") ? "/qr/events" : "", null, [], 2000);
+  const online = useFetch("/online/summary", null, [bump], 3000);
+  const kots = useFetch("/kots/latest", null, [bump], 3000);
+  const qrEvents = useFetch(can("pos") ? "/qr/events" : "", null, [], 1000);
+  // ---- New (un-accepted) customer QR orders ----
+  // Managers/admins (notifications permission) read the shared unread list from the server,
+  // so accepting on one screen silences the ring on every screen.
+  // Cashiers without that permission use a list saved on this device.
+  const canNotes = can("notifications");
+  const newOrdersSrv = useFetch(
+    canNotes ? "/notifications" : "",
+    { status: "unread", type: "order", limit: 100 },
+    [bump],
+    4000,
+  );
+  const reloadNewOrders = useRef(() => {});
+  reloadNewOrders.current = newOrdersSrv.reload;
+  // On a new QR order, refresh KOT + notifications right away instead of waiting for their timers.
+  const reloadKots = useRef(() => {});
+  reloadKots.current = kots.reload;
+  const reloadNotes = useRef(() => {});
+  reloadNotes.current = notes.reload;
+  const [hiddenIds, setHiddenIds] = useState([]);
+  const [soundLocked, setSoundLocked] = useState(false);
+  const [localPending, setLocalPending] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("bb_qr_pending") || "[]");
+      const limit = Date.now() - 12 * 60 * 60 * 1000;
+      return saved.filter((n) => !Date.parse(n.created_at) || Date.parse(n.created_at) > limit);
+    } catch {
+      return [];
+    }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem("bb_qr_pending", JSON.stringify(localPending));
+    } catch {
+      // storage is optional
+    }
+  }, [localPending]);
+  // Server list (shared) + orders just received on this screen. The local copy shows the order at once,
+  // without waiting for the server list to refresh.
+  const serverPending = canNotes
+    ? (newOrdersSrv.data?.notifications || []).filter((n) => String(n.title || "").startsWith("QR Order Received"))
+    : [];
+  const pendingOrders = [...serverPending, ...localPending.filter((n) => !serverPending.some((x) => x.id === n.id))]
+    .filter((n) => !hiddenIds.includes(n.id))
+    .sort((a, b) => b.id - a.id);
+  // Managers/admins: once the server list is fresh, drop local copies that someone already accepted elsewhere.
+  useEffect(() => {
+    if (!canNotes || !newOrdersSrv.data) return;
+    const ids = new Set((newOrdersSrv.data.notifications || []).map((n) => n.id));
+    setLocalPending((l) => {
+      const keep = l.filter((n) => ids.has(n.id) || Date.now() - (n.seenAt || 0) < 8000);
+      return keep.length === l.length ? l : keep;
+    });
+  }, [newOrdersSrv.data, canNotes]);
+  const hasPending = pendingOrders.length > 0;
+  const hasPendingRef = useRef(false);
+  hasPendingRef.current = hasPending;
+  const acceptOrders = async (list) => {
+    const ids = list.map((n) => n.id);
+    setHiddenIds((h) => [...h, ...ids]);
+    setLocalPending((l) => l.filter((n) => !ids.includes(n.id)));
+    if (list.length >= pendingOrders.length) setOrdMenu("");
+    await Promise.all(ids.map((id) => api(`/notifications/${id}/read`, { method: "PATCH" }).catch(() => {})));
+    reloadNewOrders.current();
+  };
   const [pops, setPops] = useState([]);
   const [kotQueue, setKotQueue] = useState([]); // QR-order KOTs waiting to be auto-printed
   const seen = useRef({ online: null, kot: null, qr: null });
@@ -240,6 +299,49 @@ export default function Shell({ admin, children }) {
     }
   }, []);
 
+  // Distinct double "ring-ring" sound for every new customer QR order.
+  // Synthesised with Web Audio, so no extra mp3 file is needed. It is different from bell.mp3 (Customer Call).
+  const ringOrder = useCallback(() => {
+    try {
+      const context = getCtx();
+      if (!context) return;
+      // Browsers block sound until the page gets a click/touch. While blocked, do NOT queue rings
+      // (they would all play at once on the first click); just remember that sound is locked.
+      if (context.state !== "running") {
+        setSoundLocked(true);
+        return;
+      }
+      setSoundLocked(false);
+
+      const strike = (freq, start, dur, vol) => {
+        [1, 2.76, 5.4].forEach((mult, i) => {
+          const osc = context.createOscillator();
+          const gain = context.createGain();
+          osc.type = "sine";
+          osc.frequency.value = freq * mult;
+          osc.connect(gain);
+          gain.connect(context.destination);
+          const t0 = context.currentTime + start;
+          const v = vol / (i + 1);
+          gain.gain.setValueAtTime(0.0001, t0);
+          gain.gain.exponentialRampToValueAtTime(v, t0 + 0.01);
+          gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+          osc.start(t0);
+          osc.stop(t0 + dur + 0.05);
+        });
+      };
+
+      // two rings, each made of fast alternating strikes: ring-ring
+      [0, 0.9].forEach((offset) => {
+        for (let i = 0; i < 6; i += 1) {
+          strike(i % 2 ? 1568 : 1318, offset + i * 0.11, 0.35, 0.28);
+        }
+      });
+    } catch {
+      // Sound is optional; the POS must continue working without it.
+    }
+  }, [getCtx]);
+
   const pushPop = useCallback((p, playSound = true) => {
     setPops((list) => [...list.slice(-2), p]);
     if (playSound) beep();
@@ -319,7 +421,18 @@ export default function Shell({ admin, children }) {
           if (isCall) {
             // Customer Call plays bell.mp3 only; skip the regular beep for this popup.
             ringBell();
+          } else {
+            // New customer order: add to the "New Orders" list. The ring repeats until it is accepted.
+            if (hasPendingRef.current) ringOrder();
+            setLocalPending((l) =>
+              l.some((x) => x.id === event.id)
+                ? l
+                : [...l, { id: event.id, title: event.title, message: event.message, link_id: event.link_id, created_at: event.created_at, seenAt: Date.now() }],
+            );
+            reloadNewOrders.current();
+            reloadKots.current();
           }
+          reloadNotes.current();
 
           pushPop(
             {
@@ -330,13 +443,38 @@ export default function Shell({ admin, children }) {
               to: admin ? "/admin/notifications" : "/orders",
               state: null,
             },
-            !isCall,
+            false,
           );
         });
     }
 
     seen.current.qr = Math.max(seen.current.qr || 0, max);
-  }, [qrEvents.data, admin, pushPop, ringBell]);
+  }, [qrEvents.data, admin, pushPop, ringBell, ringOrder]);
+  // First click/touch after a refresh allows sound: ring right away if an order is waiting.
+  useEffect(() => {
+    if (!soundLocked) return undefined;
+    const unlockSound = () => {
+      const context = getCtx();
+      if (!context) return;
+      context.resume().then(() => {
+        if (context.state === "running") {
+          setSoundLocked(false);
+          if (hasPendingRef.current) ringOrder();
+        }
+      }).catch(() => {});
+    };
+    const events = ["click", "keydown", "touchstart"];
+    events.forEach((e) => window.addEventListener(e, unlockSound));
+    return () => events.forEach((e) => window.removeEventListener(e, unlockSound));
+  }, [soundLocked, getCtx, ringOrder]);
+
+  // Keep ringing every 6 seconds until every new order is accepted.
+  useEffect(() => {
+    if (!hasPending) return undefined;
+    ringOrder();
+    const t = setInterval(ringOrder, 6000);
+    return () => clearInterval(t);
+  }, [hasPending, ringOrder]);
   const openOrders = open.data?.orders || [];
   const unread = notes.data?.unread_total || 0;
   const count = unread + openOrders.length + onlineNew;
@@ -428,6 +566,61 @@ export default function Shell({ admin, children }) {
           </div>
           <div className="hright">
             <div className="ordic" ref={ordRef}>
+              <div className="ordw">
+                <button
+                  className={`hbtn plat neworders ${hasPending ? "alert ringing" : ""}`}
+                  onClick={() => setOrdMenu(ordMenu === "new" ? "" : "new")}
+                  aria-label="New orders"
+                  title={hasPending ? `${pendingOrders.length} new order(s) waiting` : "New orders"}
+                >
+                  <Icon n="bag" size={23} />
+                  {hasPending && <span className="bdg">{pendingOrders.length}</span>}
+                </button>
+                {ordMenu === "new" && (
+                  <div className="dd">
+                    <div className="dd-t">New Orders ({pendingOrders.length})</div>
+                    {pendingOrders.slice(0, 5).map((n) => (
+                      <div
+                        key={n.id}
+                        className="dd-i no-row"
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => {
+                          setOrdMenu("");
+                          navigate(admin ? "/admin/pos" : "/", n.link_id ? { orderId: Number(n.link_id) } : null);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") e.currentTarget.click();
+                        }}
+                      >
+                        <span className="dd-ic">
+                          <Icon n="cart" />
+                        </span>
+                        <span>
+                          <b>{n.title}</b>
+                          <small>{n.message}</small>
+                          <small>{ago(n.created_at)}</small>
+                        </span>
+                        <button
+                          className="no-accept"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            acceptOrders([n]);
+                          }}
+                        >
+                          Accept
+                        </button>
+                      </div>
+                    ))}
+                    {!hasPending && <p className="muted pad">No new orders waiting.</p>}
+                    {pendingOrders.length > 1 && (
+                      <button className="dd-f" onClick={() => acceptOrders(pendingOrders)}>
+                        Accept all ({pendingOrders.length}) <Icon n="check" size={15} />
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
               {["swiggy", "zomato"].map((p) => {
                 const n = onl[p]?.new || 0;
                 return (
@@ -568,22 +761,6 @@ export default function Shell({ admin, children }) {
                 )}
               </div>
             )}
-            <div className="clock">
-              <Icon n="calendar" size={18} />
-              <div>
-                <b>
-                  {now
-                    .toLocaleDateString("en-GB", {
-                      weekday: "short",
-                      day: "2-digit",
-                      month: "short",
-                      year: "numeric",
-                    })
-                    .replace(/,/g, "")}
-                </b>
-                <small>{fmtTime(now)}</small>
-              </div>
-            </div>
             <div className="uw" ref={uRef}>
               <button className="user" onClick={() => setUmenu(!umenu)}>
                 <span className="uav">{(user?.name || "C")[0]}</span>
@@ -764,6 +941,25 @@ export default function Shell({ admin, children }) {
           )}
         </aside>
         {drawer && <div className="scrim" onClick={() => setDrawer(false)} />}
+        {hasPending && soundLocked && (
+          <button className="no-sound" onClick={() => {}}>
+            <Icon n="bell" size={16} /> New order waiting. Click here to turn on order sound
+          </button>
+        )}
+        <style>{`
+          .no-sound{position:fixed;top:0;left:50%;transform:translateX(-50%);z-index:9999;display:flex;align-items:center;gap:8px;border:0;background:#e03131;color:#fff;font-weight:700;font-size:13px;padding:10px 18px;cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.35);animation:bb-no-pulse 1.2s infinite}
+          .hbtn.plat.neworders{background:#e8590c;box-shadow:none}
+          .hbtn.plat.neworders:hover{background:#f76707}
+          .hbtn.plat.neworders.ringing{background:#e03131;animation:bb-no-pulse 1.2s infinite}
+          .hbtn.plat.neworders.ringing svg{transform-origin:50% 12%;animation:bb-no-ring .9s ease-in-out infinite}
+          .hbtn.plat.neworders .bdg{background:#fff;color:#c92a2a}
+          @keyframes bb-no-ring{0%,100%{transform:rotate(0)}15%{transform:rotate(18deg)}30%{transform:rotate(-18deg)}45%{transform:rotate(12deg)}60%{transform:rotate(-12deg)}75%{transform:rotate(6deg)}90%{transform:rotate(-3deg)}}
+          @keyframes bb-no-pulse{0%{box-shadow:0 0 0 0 rgba(224,49,49,.7)}70%{box-shadow:0 0 0 12px rgba(224,49,49,0)}100%{box-shadow:0 0 0 0 rgba(224,49,49,0)}}
+          .dd-i.no-row{cursor:pointer;display:flex;align-items:center;gap:10px}
+          .no-accept{margin-left:auto;flex:none;border:0;background:#1c7a42;color:#fff;font-weight:700;font-size:12px;padding:8px 12px;cursor:pointer}
+          .no-accept:hover{background:#15612f}
+          @media (prefers-reduced-motion:reduce){.hbtn.plat.neworders.ringing,.hbtn.plat.neworders.ringing svg{animation:none}}
+        `}</style>
         {kotQueue[0] && (
           <KotAutoPrint key={kotQueue[0].qid} order={kotQueue[0]} onDone={() => setKotQueue((l) => l.slice(1))} />
         )}
