@@ -104,6 +104,31 @@ label.f{display:block;font-size:12px;font-weight:600;color:var(--ink-2);margin:0
 .tgl input:checked+i{background:var(--brand)}
 .tgl input:checked+i:after{transform:translateX(19px)}
 
+/* team page */
+.tm-sum{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:14px}
+.tm-sum .it{padding:14px 16px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow-1)}
+.tm-sum .it b{display:block;font-size:24px;font-weight:700;line-height:1.1;color:var(--ink)}
+.tm-sum .it span{font-size:12.5px;color:var(--muted);font-weight:500}
+.tm-info{display:flex;align-items:flex-start;gap:12px;margin-bottom:14px;padding:12px 16px;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius-s);font-size:13px;color:var(--ink-2)}
+.tm-info svg{width:20px;height:20px;flex:none;margin-top:1px;color:var(--brand)}
+.tm-info p{margin:0}
+.tm-info p+p{margin-top:3px}
+.tm-info .pill{margin-right:4px}
+.tm-table{min-width:720px}
+.tm-who{display:flex;align-items:center;gap:12px;min-width:0}
+.tm-who .avatar{width:38px;height:38px;font-size:15px}
+.tm-who b{display:flex;align-items:center;gap:8px;font-weight:600;line-height:1.25}
+.tm-who small{display:block;color:var(--muted);font-size:12.5px;line-height:1.3}
+.tm-you{font-size:10.5px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;padding:2px 7px;border-radius:99px;background:var(--brand-soft);color:var(--brand-2)}
+.pill.owner{background:var(--brand-soft);color:var(--brand-2)}
+.pill.support{background:var(--blue-soft);color:var(--blue)}
+.pill.off{background:var(--red-soft);color:var(--red)}
+.tm-sel{width:auto;min-width:120px;padding:6px 30px 6px 12px;font-weight:600;font-size:13px;border-radius:99px}
+.tm-state{display:flex;align-items:center;gap:12px}
+.tm-date{color:var(--ink-2);font-size:13px;white-space:nowrap}
+.tm-actions{display:flex;justify-content:flex-end;gap:8px}
+@media (max-width:760px){.tm-sum{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
 /* ---------- cards ---------- */
 .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow-1)}
 .card.pad{padding:20px}
@@ -949,22 +974,68 @@ td.right,th.right{text-align:right}
 
   /* ============ TEAM ============ */
   VIEWS.team = function (c) {
-    setHead("Team", "Who can sign in to this panel.", [h("button", { class: "btn", onclick: function () { teamModal(); } }, icon("plus"), "Add team member")]);
+    setHead("Team", "People who can sign in to this owner panel.", [h("button", { class: "btn", onclick: function () { teamModal(); } }, icon("plus"), "Add team member")]);
     api("/admins").then(function (d) {
       c.textContent = "";
-      c.appendChild(h("div", { class: "hint", style: "margin-bottom:12px", text: "Owners can change everything. Support members can look at every page but cannot change anything." }));
-      c.appendChild(h("div", { class: "card tablewrap" }, h("table", {}, h("thead", {}, h("tr", {}, ["Name", "Email", "Role", "Status", ""].map(function (x) { return h("th", { text: x }); }))),
-        h("tbody", {}, d.admins.map(function (a) {
+      var list = d.admins || [];
+      var owners = list.filter(function (a) { return a.role === "owner"; }).length;
+      var active = list.filter(function (a) { return !!a.is_active; }).length;
+      function sum(label, n) { return h("div", { class: "it" }, h("b", { text: String(n) }), h("span", { text: label })); }
+
+      c.appendChild(h("div", { class: "tm-sum" }, sum("Team members", list.length), sum("Owners", owners), sum("Support", list.length - owners), sum("Active", active)));
+      c.appendChild(h("div", { class: "tm-info" }, icon("key"), h("div", {},
+        h("p", {}, h("span", { class: "pill owner", text: "Owner" }), "Full access. Can change cafes, plans, payments and settings."),
+        h("p", {}, h("span", { class: "pill support", text: "Support" }), "View only. Can look at every page but cannot change anything."))));
+
+      function statePill(on) { return h("span", { class: "pill " + (on ? "active" : "off"), text: on ? "Active" : "Inactive" }); }
+
+      c.appendChild(h("div", { class: "card tablewrap" }, h("table", { class: "tm-table" },
+        h("thead", {}, h("tr", {}, ["Member", "Role", "Status", "Added", ""].map(function (x) { return h("th", { text: x }); }))),
+        h("tbody", {}, list.map(function (a) {
           var me = a.id === S.admin.id;
-          var role = h("select", { style: "width:auto", disabled: me, onchange: function (e) { api("/admins/" + a.id, { method: "PATCH", body: { role: e.target.value } }).then(function () { toast("Role updated."); }).catch(function (er) { toast(er.message, true); refreshView(); }); } },
-            h("option", { value: "owner", text: "Owner", selected: a.role === "owner" }), h("option", { value: "support", text: "Support", selected: a.role !== "owner" }));
-          return h("tr", {}, h("td", {}, h("div", { class: "name", text: a.name + (me ? " (you)" : "") })), h("td", { text: a.email }), h("td", {}, role),
-            h("td", {}, h("label", { class: "tgl" }, h("input", { type: "checkbox", checked: !!a.is_active, disabled: me, onchange: function (e) { api("/admins/" + a.id, { method: "PATCH", body: { is_active: e.target.checked } }).then(function () { toast(e.target.checked ? "Activated." : "Deactivated."); }).catch(function (er) { toast(er.message, true); refreshView(); }); } }), h("i"))),
-            h("td", { class: "right" }, h("button", { class: "btn sm ghost", text: "Reset password", onclick: function () {
+          var nm = a.name || a.email;
+
+          var roleCell;
+          if (me) {
+            roleCell = h("span", { class: "pill " + (a.role === "owner" ? "owner" : "support"), text: a.role === "owner" ? "Owner" : "Support" });
+          } else {
+            roleCell = h("select", { class: "tm-sel", "aria-label": "Role of " + nm, onchange: function (e) {
+              api("/admins/" + a.id, { method: "PATCH", body: { role: e.target.value } }).then(function () { toast("Role updated."); }).catch(function (er) { toast(er.message, true); refreshView(); });
+            } },
+              h("option", { value: "owner", text: "Owner", selected: a.role === "owner" }),
+              h("option", { value: "support", text: "Support", selected: a.role !== "owner" }));
+          }
+
+          var pill = statePill(!!a.is_active);
+          var state = h("div", { class: "tm-state" }, pill);
+          if (!me) {
+            state.appendChild(h("label", { class: "tgl", title: a.is_active ? "Deactivate" : "Activate" },
+              h("input", { type: "checkbox", checked: !!a.is_active, "aria-label": "Active", onchange: function (e) {
+                var on = e.target.checked;
+                api("/admins/" + a.id, { method: "PATCH", body: { is_active: on } }).then(function () {
+                  toast(on ? "Activated." : "Deactivated.");
+                  pill.className = "pill " + (on ? "active" : "off");
+                  pill.textContent = on ? "Active" : "Inactive";
+                }).catch(function (er) { toast(er.message, true); refreshView(); });
+              } }), h("i")));
+          }
+
+          return h("tr", {},
+            h("td", {}, h("div", { class: "tm-who" },
+              h("div", { class: "avatar", text: nm.trim().charAt(0).toUpperCase() }),
+              h("div", {}, h("b", {}, h("span", { text: a.name || a.email }), me ? h("span", { class: "tm-you", text: "You" }) : null), h("small", { text: a.email })))),
+            h("td", {}, roleCell),
+            h("td", {}, state),
+            h("td", {}, h("span", { class: "tm-date", text: a.created_at ? fdate(a.created_at) : "-" })),
+            h("td", {}, h("div", { class: "tm-actions" }, h("button", { class: "btn sm ghost", onclick: function () {
               var pw = h("input", { type: "text", placeholder: "Min 8 characters" });
               modal("Reset password", a.email, field("New password", pw), [{ text: "Cancel" }, { text: "Reset", onClick: function (close, b) { busy(b, api("/admins/" + a.id, { method: "PATCH", body: { password: pw.value } })).then(function () { close(); toast("Password reset."); }).catch(function () {}); } }]);
-            } })));
+            } }, icon("key"), "Reset password"))));
         })))));
+
+      if (list.length < 2) {
+        c.appendChild(h("div", { class: "hint", style: "margin-top:12px", text: "Tip: add a Support member to let your team check cafes and payments without being able to change anything." }));
+      }
     }).catch(function (e) { loadError(c, e); });
   };
   function teamModal() {
