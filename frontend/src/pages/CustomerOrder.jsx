@@ -64,9 +64,9 @@ const EXTRA_ICONS = {
   drop: <path d="M12 3s6 6.4 6 11a6 6 0 0 1-12 0c0-4.6 6-11 6-11z" />,
   tissue: (
     <>
-      <path d="M4 12h16v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z" />
-      <path d="M8 12c-.3-3 1-6 4-8 3 2 4.3 5 4 8" />
-      <path d="M9.5 16.5h5" />
+      <path d="M4 13.5h16V19a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z" />
+      <path d="M12 13.5c-2.6-.6-4-2.3-3.6-4.4.2-1.2 1.2-1.9 2.2-1.6.3-1.6 1.6-2.6 3-2.3 1.5.3 2.4 1.7 2.1 3.2 1.2.3 1.8 1.6 1.4 2.8-.5 1.5-2.4 2.6-5.1 2.3z" />
+      <path d="M9 17.5h6" />
     </>
   ),
   chat: (
@@ -1002,7 +1002,11 @@ export default function CustomerOrder({ token }) {
                 <span className="cx-okmark">
                   <Icon n="check" size={30} />
                 </span>
-                <p>Your order has been sent to the kitchen. We will serve it at your table shortly.</p>
+                <p>
+                  {live && ["ready", "completed"].includes(live.status)
+                    ? "Your order is ready! We will serve it at your table shortly."
+                    : "Your order has been sent to the kitchen. We will serve it at your table shortly."}
+                </p>
               </div>
             )}
 
@@ -1507,7 +1511,8 @@ const RAW_CSS = `
 .cx .cx-okmark{position:relative;width:62px;height:62px;display:grid;place-items:center;color:#fff;background:linear-gradient(135deg,#2f8f55,#14532d);border-radius:50%!important;box-shadow:0 8px 20px rgba(20,83,45,.3);animation:cx-pop .45s ease-out,cx-breathe 2s ease-in-out .45s infinite}
 .cx .cx-okmark::after{content:"";position:absolute;inset:0;border-radius:50%!important;border:2px solid #2f8f55;opacity:0;animation:cx-ripple 2s ease-out .45s infinite}
 @keyframes cx-breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.14)}}
-@keyframes cx-ripple{0%{transform:scale(1);opacity:.55}100%{transform:scale(1.7);opacity:0}}
+@keyframes cx-ripple{0%{transform:scale(1);opacity:.5}100%{transform:scale(1.45);opacity:0}}
+.cx-okbox .cx-okmark{margin:14px 0 16px}
 @media (prefers-reduced-motion:reduce){.cx .cx-okmark,.cx .cx-okmark::after{animation:none}}
 @keyframes cx-pop{0%{transform:scale(.4);opacity:0}70%{transform:scale(1.12)}100%{transform:scale(1);opacity:1}}
 .cx-center-sm{display:grid;place-items:center;padding:22px}
@@ -1536,7 +1541,8 @@ const RAW_CSS = `
 .cx-need-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .cx-need-grid button{display:flex;align-items:center;gap:10px;min-height:50px;padding:0 14px;font-weight:700;background:var(--cx-card);border:1px solid var(--cx-bd)}
 .cx-need-grid button span{display:grid;place-items:center;color:var(--cx-g)}
-.cx-need-grid button.on{background:#fff3c4;border:2px solid var(--cx-gd)}
+.cx-need-grid button.on{background:var(--cx-gl);border:2px solid var(--cx-g)}
+.cx-need-grid button.on span{color:var(--cx-gd)}
 .cx-need > input{width:100%;height:46px;margin-top:8px;padding:0 14px;font:inherit;color:var(--cx-tx);background:var(--cx-bg);border:1px solid var(--cx-bd);outline:0}
 .cx-need > input:focus{border-color:var(--cx-g)}
 .cx-call-big{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;margin-top:14px;padding:16px;font-size:17px;font-weight:800;color:#fff;background:var(--cx-g);text-align:center}
