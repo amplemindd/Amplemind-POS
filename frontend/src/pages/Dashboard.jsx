@@ -57,7 +57,7 @@ export default function Dashboard() {
       <div className="g3">
         <Panel title={<T ic="chart">Sales & Orders</T>} className="span2" right={<span className="muted">{x.series.mode === "hour" ? "Hourly" : "Daily"}</span>}><div className="lg"><i style={{ background: "#14532D" }} /> Sales (₹) <i style={{ background: "#86EFAC" }} /> Orders</div><Combo points={x.series.points} /></Panel>
         <Panel title={<T ic="pie">Order Type Distribution</T>}><Donut center={{ big: totT, small: "Total Orders" }} data={x.types.map((t) => ({ label: TYPES[t.k] || t.k, value: t.n, text: `${t.n} (${totT ? Math.round((t.n / totT) * 100) : 0}%)`, color: TCOL[t.k] }))} /></Panel>
-        <Panel title={<T ic="card">Payment Summary</T>}><Donut center={{ big: money(totP), small: "Total Sales" }} data={x.payments.map((t) => ({ label: cap(t.k), value: t.amount, text: `${totP ? Math.round((t.amount / totP) * 100) : 0}%`, color: PCOL[t.k] }))} /></Panel>
+        <Panel title={<T ic="card">Payment Summary</T>}><Donut center={{ big: money(totP), small: "Total Sales" }} data={x.payments.map((t) => ({ label: cap(t.k), value: t.amount, text: money(t.amount), color: PCOL[t.k] }))} /></Panel>
       </div>
       <div className="g3b">
         <Panel title={<T ic="table">Table Status</T>} right={<A to="/admin/tables" className="lnk">View All</A>}>
