@@ -24,6 +24,7 @@ const TENANT_TABLES = [
 const RE = new RegExp("(?<![\\w$])(" + TENANT_TABLES.join("|") + ")(?![\\w$])", "g");
 
 const prefix = (tid) => `t${Number(tid)}_`;
+const currentStore = () => als.getStore() || null;
 const currentTenantId = () => {
   const s = als.getStore();
   return s ? s.tid : null;
@@ -61,5 +62,5 @@ function tidFromQrToken(token) {
 }
 
 module.exports = {
-  als, TENANT_TABLES, prefix, currentTenantId, rewrite, tableName, newQrToken, tidFromQrToken,
+  als, TENANT_TABLES, prefix, currentStore, currentTenantId, rewrite, tableName, newQrToken, tidFromQrToken,
 };

@@ -4,277 +4,1000 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>Owner Panel - Chai Order System</title>
+<meta name="color-scheme" content="light dark">
+<title>Owner Panel · Chai Order System</title>
 <style>
-  :root { --bg:#f6f3ee; --card:#fff; --ink:#27190f; --muted:#7a6a5d; --brand:#b4561f; --brand-d:#933f10; --line:#e6dccf; --ok:#1b7f3b; --bad:#b3261e; --warn:#a36200; }
-  * { box-sizing:border-box; }
-  body { margin:0; font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--ink); }
-  header { background:#2b1d14; color:#fff; padding:14px 20px; display:flex; align-items:center; justify-content:space-between; gap:10px; }
-  header h1 { margin:0; font-size:1.1rem; }
-  header .who { font-size:.85rem; opacity:.85; display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
-  main { max-width:1100px; margin:0 auto; padding:20px; }
-  .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-bottom:18px; }
-  .stat { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 16px; }
-  .stat b { display:block; font-size:1.6rem; }
-  .stat span { color:var(--muted); font-size:.85rem; }
-  .bar { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px; }
-  input, select, textarea { padding:10px 12px; font-size:.95rem; border:1px solid var(--line); border-radius:8px; background:#fff; color:var(--ink); font-family:inherit; }
-  .bar input { flex:1; min-width:180px; }
-  button { padding:10px 16px; font-size:.95rem; font-weight:600; border:0; border-radius:8px; cursor:pointer; background:var(--brand); color:#fff; }
-  button:hover { background:var(--brand-d); }
-  button.ghost { background:#fff; color:var(--ink); border:1px solid var(--line); }
-  button.ghost:hover { background:#f3ece2; }
-  button.danger { background:var(--bad); }
-  button.small { padding:6px 12px; font-size:.85rem; }
-  button:disabled { opacity:.6; cursor:wait; }
-  .tablewrap { background:var(--card); border:1px solid var(--line); border-radius:12px; overflow-x:auto; }
-  table { width:100%; border-collapse:collapse; min-width:760px; }
-  th, td { text-align:left; padding:11px 14px; border-bottom:1px solid var(--line); font-size:.92rem; vertical-align:middle; }
-  th { font-size:.78rem; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); background:#faf6f0; }
-  tr:last-child td { border-bottom:0; }
-  .pill { display:inline-block; padding:2px 10px; border-radius:99px; font-size:.78rem; font-weight:600; }
-  .pill.active { background:#e3f4e8; color:var(--ok); }
-  .pill.suspended { background:#fdecea; color:var(--bad); }
-  .pill.expired { background:#fff1d6; color:var(--warn); }
-  .muted { color:var(--muted); }
-  .empty { padding:30px; text-align:center; color:var(--muted); }
-  .login { max-width:380px; margin:12vh auto; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:26px; }
-  .login h2 { margin:0 0 16px; }
-  label { display:block; font-size:.82rem; font-weight:600; margin:12px 0 5px; }
-  .login input, .modal input, .modal select, .modal textarea { width:100%; }
-  .login button { width:100%; margin-top:18px; }
-  .err { color:var(--bad); font-size:.88rem; margin-top:10px; min-height:1.2em; }
-  .overlay { position:fixed; inset:0; background:rgba(30,15,5,.5); display:none; align-items:flex-start; justify-content:center; padding:24px 14px; overflow-y:auto; z-index:10; }
-  .overlay.open { display:flex; }
-  .modal { background:#fff; border-radius:14px; width:100%; max-width:560px; padding:22px; }
-  .modal h3 { margin:0 0 4px; }
-  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-  .kv { display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); gap:8px; margin:14px 0; }
-  .kv div { background:#faf6f0; border-radius:8px; padding:8px 10px; font-size:.8rem; color:var(--muted); }
-  .kv b { display:block; color:var(--ink); font-size:1.05rem; }
-  .row { display:flex; gap:8px; flex-wrap:wrap; margin-top:16px; }
-  hr { border:0; border-top:1px solid var(--line); margin:18px 0; }
-  .toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:#2b1d14; color:#fff; padding:10px 18px; border-radius:8px; font-size:.9rem; display:none; z-index:20; }
+:root{
+  --bg:#f4f6f5; --surface:#ffffff; --surface-2:#f8faf9; --line:#e4e9e6; --line-2:#d3dbd7;
+  --ink:#0f1f17; --ink-2:#3f5148; --muted:#6f8178;
+  --brand:#0f7a43; --brand-2:#0b6136; --brand-soft:#e3f4ea; --brand-ink:#ffffff;
+  --blue:#2563eb; --blue-soft:#e6eefc; --amber:#b45309; --amber-soft:#fdf1da; --red:#c0302a; --red-soft:#fde9e7; --gray-soft:#eceff0;
+  --shadow-1:0 1px 2px rgba(15,31,23,.06),0 1px 1px rgba(15,31,23,.04);
+  --shadow-2:0 10px 30px -10px rgba(15,31,23,.18),0 2px 6px rgba(15,31,23,.06);
+  --side:#0d2418; --side-ink:#cfe3d7; --side-muted:#7f9d8d; --side-active:#16402a;
+  --radius:14px; --radius-s:10px;
+}
+:root[data-theme="dark"]{
+  --bg:#0b110e; --surface:#121a16; --surface-2:#16201b; --line:#22302a; --line-2:#2c3c35;
+  --ink:#e8f1ec; --ink-2:#b4c6bc; --muted:#7f948a;
+  --brand:#34c27a; --brand-2:#2aa868; --brand-soft:#12301f; --brand-ink:#04150c;
+  --blue:#7aa2ff; --blue-soft:#17233f; --amber:#f0b04a; --amber-soft:#33260f; --red:#ff7b73; --red-soft:#3a1816; --gray-soft:#1d2723;
+  --shadow-1:0 1px 2px rgba(0,0,0,.4); --shadow-2:0 14px 34px -10px rgba(0,0,0,.6);
+  --side:#08100c; --side-active:#12251b;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+button,input,select,textarea{font:inherit;color:inherit}
+h1,h2,h3,p{margin:0}
+.hide{display:none!important}
+.muted{color:var(--muted)}
+.num{font-variant-numeric:tabular-nums}
+
+/* ---------- shell ---------- */
+.shell{display:grid;grid-template-columns:260px 1fr;min-height:100vh}
+.side{background:var(--side);color:var(--side-ink);display:flex;flex-direction:column;padding:20px 14px;position:sticky;top:0;height:100vh}
+.brand{display:flex;align-items:center;gap:12px;padding:6px 10px 22px}
+.logo{width:38px;height:38px;border-radius:11px;background:linear-gradient(135deg,#34c27a,#0f7a43);display:grid;place-items:center;color:#fff;box-shadow:0 6px 16px -6px rgba(52,194,122,.7)}
+.brand b{display:block;color:#fff;font-size:15px;letter-spacing:.2px}
+.brand span{font-size:11.5px;color:var(--side-muted);text-transform:uppercase;letter-spacing:.12em}
+.nav{display:flex;flex-direction:column;gap:3px}
+.nav a{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;color:var(--side-ink);text-decoration:none;font-weight:500;cursor:pointer;transition:background .15s,color .15s}
+.nav a svg{width:19px;height:19px;flex:none;opacity:.85}
+.nav a:hover{background:rgba(255,255,255,.06)}
+.nav a.on{background:var(--side-active);color:#fff;box-shadow:inset 3px 0 0 #34c27a}
+.nav a .badge{margin-left:auto}
+.badge{background:#f0b04a;color:#2b1d00;font-size:11px;font-weight:700;border-radius:99px;padding:1px 8px;min-width:20px;text-align:center}
+.side-foot{margin-top:auto;display:flex;flex-direction:column;gap:10px}
+.me{display:flex;align-items:center;gap:10px;padding:10px;border-radius:12px;background:rgba(255,255,255,.05)}
+.avatar{width:34px;height:34px;border-radius:50%;background:#1d4a31;color:#bff0d4;display:grid;place-items:center;font-weight:700;flex:none}
+.me b{display:block;color:#fff;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px}
+.me span{font-size:11.5px;color:var(--side-muted);text-transform:capitalize}
+.side-btns{display:flex;gap:8px}
+.side-btns button{flex:1;background:rgba(255,255,255,.07);border:0;color:var(--side-ink);padding:8px;border-radius:9px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;font-size:12.5px}
+.side-btns button:hover{background:rgba(255,255,255,.13)}
+.side-btns svg{width:16px;height:16px}
+
+.main{min-width:0}
+.top{display:flex;align-items:center;gap:14px;padding:22px 32px 6px;flex-wrap:wrap}
+.top h1{font-size:24px;letter-spacing:-.4px}
+.top p{color:var(--muted);margin-top:2px}
+.top .grow{flex:1}
+.hamb{display:none;background:var(--surface);border:1px solid var(--line);border-radius:10px;width:40px;height:40px;cursor:pointer;place-items:center}
+.hamb svg{width:20px;height:20px}
+.content{padding:16px 32px 48px;max-width:1280px;animation:fade .25s ease}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* ---------- controls ---------- */
+.btn{display:inline-flex;align-items:center;gap:8px;justify-content:center;border:1px solid transparent;border-radius:var(--radius-s);padding:9px 16px;font-weight:600;cursor:pointer;background:var(--brand);color:var(--brand-ink);transition:transform .08s,background .15s,box-shadow .15s;white-space:nowrap}
+.btn:hover{background:var(--brand-2);box-shadow:0 6px 16px -8px var(--brand)}
+.btn:active{transform:translateY(1px)}
+.btn.ghost{background:var(--surface);border-color:var(--line-2);color:var(--ink)}
+.btn.ghost:hover{background:var(--surface-2);box-shadow:none}
+.btn.danger{background:var(--red);color:#fff}
+.btn.danger:hover{background:#a52620}
+.btn.soft{background:var(--brand-soft);color:var(--brand)}
+.btn.soft:hover{box-shadow:none;filter:brightness(.97)}
+.btn.sm{padding:6px 12px;font-size:12.5px;border-radius:8px}
+.btn[disabled]{opacity:.55;cursor:not-allowed;box-shadow:none}
+.btn svg{width:16px;height:16px}
+input,select,textarea{width:100%;background:var(--surface);border:1px solid var(--line-2);border-radius:var(--radius-s);padding:9px 12px;outline:none;transition:border-color .15s,box-shadow .15s}
+textarea{resize:vertical}
+input:focus,select:focus,textarea:focus{border-color:var(--brand);box-shadow:0 0 0 3px color-mix(in srgb,var(--brand) 22%,transparent)}
+label.f{display:block;font-size:12px;font-weight:600;color:var(--ink-2);margin:0 0 5px}
+.field{margin-bottom:14px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.hint{font-size:12px;color:var(--muted);margin-top:4px}
+.switch{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 0;border-bottom:1px solid var(--line)}
+.switch:last-child{border-bottom:0}
+.switch b{display:block}
+.tgl{position:relative;width:44px;height:25px;flex:none}
+.tgl input{position:absolute;opacity:0;inset:0;width:100%;height:100%;margin:0;cursor:pointer;z-index:1}
+.tgl i{position:absolute;inset:0;background:var(--line-2);border-radius:99px;transition:background .2s}
+.tgl i:after{content:"";position:absolute;left:3px;top:3px;width:19px;height:19px;background:#fff;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .2s}
+.tgl input:checked+i{background:var(--brand)}
+.tgl input:checked+i:after{transform:translateX(19px)}
+
+/* ---------- cards ---------- */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow-1)}
+.card.pad{padding:20px}
+.card h3{font-size:15px;margin-bottom:2px}
+.card .sub{color:var(--muted);font-size:12.5px;margin-bottom:14px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(138px,1fr));gap:14px;margin-bottom:16px}
+.stat{padding:16px 18px;display:flex;flex-direction:column;gap:6px;cursor:default;transition:transform .15s,box-shadow .15s}
+.stat.link{cursor:pointer}
+.stat.link:hover{transform:translateY(-2px);box-shadow:var(--shadow-2)}
+.stat .ic{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:var(--brand-soft);color:var(--brand)}
+.stat .ic svg{width:18px;height:18px}
+.stat .ic.blue{background:var(--blue-soft);color:var(--blue)}
+.stat .ic.amber{background:var(--amber-soft);color:var(--amber)}
+.stat .ic.red{background:var(--red-soft);color:var(--red)}
+.stat b{font-size:26px;letter-spacing:-.5px;line-height:1.1}
+.stat span{color:var(--muted);font-size:12.5px}
+.hero{background:linear-gradient(135deg,#0f7a43 0%,#0b5a33 55%,#08402a 100%);color:#fff;border:0;position:relative;overflow:hidden}
+.hero:before{content:"";position:absolute;right:-60px;top:-60px;width:220px;height:220px;border-radius:50%;background:rgba(255,255,255,.07)}
+.hero:after{content:"";position:absolute;right:60px;bottom:-90px;width:200px;height:200px;border-radius:50%;background:rgba(255,255,255,.05)}
+.hero .sub,.hero h3{color:rgba(255,255,255,.85)}
+.hero .big{font-size:34px;font-weight:700;letter-spacing:-1px;position:relative}
+.hero .row{display:flex;gap:28px;flex-wrap:wrap;margin-top:12px;position:relative}
+.hero .row div span{display:block;font-size:12px;opacity:.75}
+.hero .row div b{font-size:17px}
+.dgrid{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:14px;margin-bottom:14px}
+.dgrid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.dgrid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px}
+
+/* ---------- table ---------- */
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.toolbar .search{flex:1;min-width:220px;position:relative}
+.toolbar .search svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--muted)}
+.toolbar .search input{padding-left:36px}
+.toolbar select{width:auto}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.chip{border:1px solid var(--line-2);background:var(--surface);border-radius:99px;padding:6px 14px;font-weight:600;font-size:12.5px;cursor:pointer;color:var(--ink-2);transition:all .15s}
+.chip:hover{border-color:var(--brand);color:var(--brand)}
+.chip.on{background:var(--brand);border-color:var(--brand);color:var(--brand-ink)}
+.chip em{font-style:normal;opacity:.7;margin-left:4px}
+.tablewrap{overflow-x:auto;border-radius:var(--radius)}
+table{width:100%;border-collapse:collapse;min-width:780px}
+th{position:sticky;top:0;background:var(--surface-2);text-align:left;font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:11px 16px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:13px 16px;border-bottom:1px solid var(--line);vertical-align:middle}
+tbody tr{transition:background .12s}
+tbody tr.click{cursor:pointer}
+tbody tr.click:hover{background:var(--surface-2)}
+tr:last-child td{border-bottom:0}
+td .name{font-weight:600}
+td .small{font-size:12px;color:var(--muted)}
+td.right,th.right{text-align:right}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:99px;font-size:12px;font-weight:600;white-space:nowrap}
+.pill:before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.pill.active{background:var(--brand-soft);color:var(--brand)}
+.pill.trial{background:var(--blue-soft);color:var(--blue)}
+.pill.pending{background:var(--amber-soft);color:var(--amber)}
+.pill.expired,.pill.suspended{background:var(--red-soft);color:var(--red)}
+.pill.plain{background:var(--gray-soft);color:var(--ink-2)}
+.pill.plain:before{display:none}
+.left{font-size:12px;margin-top:2px}
+.left.warn{color:var(--amber)} .left.bad{color:var(--red)} .left.ok{color:var(--muted)}
+.empty{padding:54px 20px;text-align:center;color:var(--muted)}
+.empty svg{width:42px;height:42px;opacity:.45;margin-bottom:8px}
+.empty b{display:block;color:var(--ink);font-size:15px;margin-bottom:2px}
+.skel{border-radius:8px;background:linear-gradient(90deg,var(--gray-soft),var(--line),var(--gray-soft));background-size:200% 100%;animation:sh 1.2s infinite linear}
+@keyframes sh{to{background-position:-200% 0}}
+
+/* ---------- lists / activity ---------- */
+.list{display:flex;flex-direction:column}
+.li{display:flex;align-items:center;gap:8px 12px;padding:11px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.li:last-child{border-bottom:0}
+.li .grow{flex:1 1 170px;min-width:0}
+.li .acts{display:flex;gap:6px;align-items:center;margin-left:auto}
+.li small.ell{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.li b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.li small{color:var(--muted);font-size:12px}
+.dot{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;background:var(--brand-soft);color:var(--brand);flex:none}
+.dot svg{width:16px;height:16px}
+.dot.amber{background:var(--amber-soft);color:var(--amber)} .dot.red{background:var(--red-soft);color:var(--red)} .dot.blue{background:var(--blue-soft);color:var(--blue)} .dot.gray{background:var(--gray-soft);color:var(--ink-2)}
+.legend{display:flex;flex-direction:column;gap:8px;font-size:13px}
+.legend div{display:flex;align-items:center;gap:8px}
+.legend i{width:10px;height:10px;border-radius:3px;flex:none}
+.legend b{margin-left:auto}
+
+/* ---------- plans ---------- */
+.plans{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+.plan{padding:20px;display:flex;flex-direction:column;gap:10px;position:relative}
+.plan .price{font-size:30px;font-weight:700;letter-spacing:-1px}
+.plan .price small{font-size:13px;font-weight:500;color:var(--muted);letter-spacing:0}
+.plan ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;color:var(--ink-2)}
+.plan li{display:flex;gap:8px;align-items:center}
+.plan li svg{width:15px;height:15px;color:var(--brand);flex:none}
+.plan .tag{position:absolute;right:16px;top:16px}
+.plan.off{opacity:.6}
+
+/* ---------- overlay: modal + drawer ---------- */
+.ov{position:fixed;inset:0;background:rgba(6,14,10,.55);backdrop-filter:blur(3px);z-index:50;display:flex;align-items:flex-start;justify-content:center;padding:6vh 16px;overflow-y:auto;animation:fadeo .18s ease}
+@keyframes fadeo{from{opacity:0}to{opacity:1}}
+.modal{background:var(--surface);border-radius:18px;width:100%;max-width:520px;box-shadow:var(--shadow-2);border:1px solid var(--line);animation:pop .2s ease}
+@keyframes pop{from{transform:translateY(10px) scale(.98);opacity:0}to{transform:none;opacity:1}}
+.modal header{padding:20px 22px 0}
+.modal header h3{font-size:18px}
+.modal header p{color:var(--muted);margin-top:2px}
+.modal .body{padding:18px 22px}
+.modal footer{padding:0 22px 20px;display:flex;gap:10px;justify-content:flex-end}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(580px,100%);background:var(--bg);z-index:51;box-shadow:-20px 0 50px -20px rgba(0,0,0,.4);display:flex;flex-direction:column;animation:slide .22s ease;border-left:1px solid var(--line)}
+@keyframes slide{from{transform:translateX(40px);opacity:0}to{transform:none;opacity:1}}
+.drawer .dh{padding:20px 24px 0;background:var(--surface);border-bottom:1px solid var(--line)}
+.drawer .dh .t{display:flex;align-items:flex-start;gap:12px}
+.drawer .dh h2{font-size:20px;letter-spacing:-.3px}
+.x{margin-left:auto;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;width:36px;height:36px;display:grid;place-items:center;cursor:pointer;flex:none}
+.x svg{width:18px;height:18px}
+.tabs{display:flex;gap:4px;margin-top:14px;overflow-x:auto}
+.tab{background:none;border:0;padding:10px 14px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}
+.tab.on{color:var(--brand);border-color:var(--brand)}
+.drawer .db{padding:20px 24px 40px;overflow-y:auto;flex:1}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 16px}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.kpi span{display:block;font-size:11.5px;color:var(--muted)}
+.kpi b{font-size:18px}
+.kpi small{color:var(--muted);font-size:11.5px}
+.meta{display:grid;grid-template-columns:110px 1fr;gap:8px 12px;margin-bottom:16px}
+.meta dt{color:var(--muted)} .meta dd{margin:0;font-weight:500;word-break:break-word}
+.box{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px}
+.box h4{margin:0 0 10px;font-size:13.5px}
+.box.danger{border-color:color-mix(in srgb,var(--red) 40%,var(--line));background:color-mix(in srgb,var(--red-soft) 50%,var(--surface))}
+.bar{height:6px;border-radius:99px;background:var(--gray-soft);overflow:hidden;margin-top:6px}
+.bar i{display:block;height:100%;background:var(--brand);border-radius:99px}
+.bar i.full{background:var(--red)}
+
+/* ---------- login ---------- */
+.lg{min-height:100vh;display:grid;grid-template-columns:1.1fr 1fr}
+.lg-art{background:linear-gradient(150deg,#0b3a24 0%,#0f7a43 60%,#34c27a 130%);color:#fff;padding:56px;display:flex;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden}
+.lg-art:before,.lg-art:after{content:"";position:absolute;border-radius:50%;background:rgba(255,255,255,.07)}
+.lg-art:before{width:420px;height:420px;right:-140px;top:-120px}
+.lg-art:after{width:300px;height:300px;left:-90px;bottom:-110px}
+.lg-art h2{font-size:34px;letter-spacing:-1px;line-height:1.15;max-width:420px;position:relative}
+.lg-art p{opacity:.82;max-width:380px;margin-top:12px;position:relative}
+.lg-art .brand b{color:#fff}
+.lg-form{display:grid;place-items:center;padding:30px}
+.lg-form .box{width:100%;max-width:380px;padding:30px;box-shadow:var(--shadow-2)}
+.lg-form h2{font-size:22px;margin-bottom:4px}
+.err{color:var(--red);font-size:13px;min-height:18px;margin-top:10px}
+
+/* ---------- toast ---------- */
+.toasts{position:fixed;right:20px;bottom:20px;display:flex;flex-direction:column;gap:10px;z-index:99}
+.toast{background:#10231a;color:#e8f6ee;padding:12px 16px;border-radius:12px;box-shadow:var(--shadow-2);display:flex;align-items:center;gap:10px;max-width:360px;animation:pop .2s ease;border-left:4px solid #34c27a}
+.toast.err{border-color:#ff7b73}
+.toast svg{width:18px;height:18px;flex:none}
+
+/* ---------- responsive ---------- */
+@media (max-width:1100px){.dgrid,.dgrid3{grid-template-columns:1fr 1fr}.dgrid>.hero{grid-column:1/-1}}
+@media (max-width:900px){
+  .shell{grid-template-columns:1fr}
+  .side{position:fixed;left:0;top:0;bottom:0;width:270px;z-index:60;transform:translateX(-102%);transition:transform .22s ease}
+  .side.open{transform:none;box-shadow:20px 0 50px rgba(0,0,0,.4)}
+  .hamb{display:grid}
+  .top{padding:18px 18px 4px}.content{padding:14px 18px 40px}
+  .dgrid,.dgrid2,.dgrid3{grid-template-columns:1fr}
+  .lg{grid-template-columns:1fr}.lg-art{display:none}
+  .grid3{grid-template-columns:1fr 1fr}
+}
+@media (max-width:520px){.grid2,.grid3,.kpis{grid-template-columns:1fr 1fr}.meta{grid-template-columns:1fr}.top h1{font-size:21px}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
 <body>
-
-<div id="loginView" class="login" style="display:none">
-  <h2>Owner login</h2>
-  <label for="lemail">Email</label>
-  <input id="lemail" type="email" autocomplete="username">
-  <label for="lpass">Password</label>
-  <input id="lpass" type="password" autocomplete="current-password">
-  <button id="lbtn">Sign in</button>
-  <div id="lerr" class="err"></div>
-</div>
-
-<div id="appView" style="display:none">
-  <header>
-    <h1>Chai Order System - Owner Panel</h1>
-    <div class="who"><span id="whoami"></span><button class="ghost small" id="pwBtn">Change password</button><button class="ghost small" id="outBtn">Sign out</button></div>
-  </header>
-  <main>
-    <div class="cards">
-      <div class="stat"><b id="sTotal">0</b><span>Total cafes</span></div>
-      <div class="stat"><b id="sActive">0</b><span>Active</span></div>
-      <div class="stat"><b id="sSusp">0</b><span>Suspended</span></div>
-      <div class="stat"><b id="sSignup">-</b><span>Public sign-up</span></div>
-    </div>
-    <div class="bar">
-      <input id="search" placeholder="Search by cafe, email or code">
-      <select id="statusF"><option value="all">All status</option><option value="active">Active</option><option value="suspended">Suspended</option></select>
-      <button id="newBtn">+ New cafe</button>
-    </div>
-    <div class="tablewrap">
-      <table>
-        <thead><tr><th>Cafe</th><th>Owner</th><th>Plan</th><th>Valid till</th><th>Status</th><th>Joined</th><th></th></tr></thead>
-        <tbody id="rows"></tbody>
-      </table>
-      <div id="empty" class="empty" style="display:none">No cafes yet.</div>
-    </div>
-    <p class="muted" style="font-size:.85rem">Sign-up page for cafe owners: <b id="signupUrl"></b></p>
-  </main>
-</div>
-
-<!-- manage cafe -->
-<div id="manageOv" class="overlay"><div class="modal">
-  <h3 id="mName"></h3>
-  <div class="muted" id="mMeta" style="font-size:.88rem"></div>
-  <div class="kv" id="mStats"></div>
-  <div class="grid2">
-    <div><label for="mPlan">Plan</label>
-      <select id="mPlan"><option>free</option><option>trial</option><option>basic</option><option>standard</option><option>premium</option></select></div>
-    <div><label for="mEnd">Valid till (blank = no expiry)</label><input id="mEnd" type="date"></div>
-  </div>
-  <div class="grid2">
-    <div><label for="mStatus">Status</label><select id="mStatus"><option value="active">Active</option><option value="suspended">Suspended</option></select></div>
-    <div><label for="mCafe">Cafe name</label><input id="mCafe" maxlength="150"></div>
-  </div>
-  <label for="mNotes">Private notes</label>
-  <textarea id="mNotes" rows="2" maxlength="500"></textarea>
-  <div class="row"><button id="mSave">Save changes</button><button class="ghost" id="mClose">Close</button></div>
-  <div class="err" id="mErr"></div>
-  <hr>
-  <label for="mPw">Reset owner password (min 8 characters)</label>
-  <div class="row" style="margin-top:0"><input id="mPw" type="text" placeholder="New password" style="flex:1"><button class="ghost" id="mReset">Reset</button></div>
-  <hr>
-  <label for="mDel">Delete cafe forever: type its code <b id="mSlug"></b></label>
-  <div class="row" style="margin-top:0"><input id="mDel" style="flex:1"><button class="danger" id="mDelBtn">Delete</button></div>
-</div></div>
-
-<!-- new cafe -->
-<div id="newOv" class="overlay"><div class="modal">
-  <h3>Create a cafe</h3>
-  <div class="muted" style="font-size:.88rem">The owner can sign in with this email and password.</div>
-  <label for="nCafe">Cafe / restaurant name</label><input id="nCafe" maxlength="150">
-  <div class="grid2">
-    <div><label for="nOwner">Owner name</label><input id="nOwner" maxlength="100"></div>
-    <div><label for="nPhone">Mobile</label><input id="nPhone" maxlength="20"></div>
-  </div>
-  <label for="nEmail">Owner email</label><input id="nEmail" type="email" maxlength="150">
-  <label for="nPass">Password (min 8 characters)</label><input id="nPass" type="text">
-  <div class="grid2">
-    <div><label for="nPlan">Plan</label><select id="nPlan"><option>free</option><option>trial</option><option>basic</option><option>standard</option><option>premium</option></select></div>
-    <div><label for="nEnd">Valid till (optional)</label><input id="nEnd" type="date"></div>
-  </div>
-  <div class="row"><button id="nSave">Create cafe</button><button class="ghost" id="nClose">Cancel</button></div>
-  <div class="err" id="nErr"></div>
-</div></div>
-
-<!-- change password -->
-<div id="pwOv" class="overlay"><div class="modal">
-  <h3>Change your password</h3>
-  <label for="pCur">Current password</label><input id="pCur" type="password" autocomplete="current-password">
-  <label for="pNew">New password (min 8 characters)</label><input id="pNew" type="password" autocomplete="new-password">
-  <div class="row"><button id="pSave">Change password</button><button class="ghost" id="pClose">Cancel</button></div>
-  <div class="err" id="pErr"></div>
-</div></div>
-
-<div id="toast" class="toast"></div>
-
+<div id="app"></div>
+<div class="toasts" id="toasts"></div>
 <script>
 (function () {
-  var $ = function (id) { return document.getElementById(id); };
-  var TK = "bbPlatformToken", token = localStorage.getItem(TK) || "", current = null, timer;
+  "use strict";
 
-  function toast(t) { var el = $("toast"); el.textContent = t; el.style.display = "block"; clearTimeout(timer); timer = setTimeout(function () { el.style.display = "none"; }, 2600); }
+  /* ============ tiny DOM helper (text is always set as text, never as HTML) ============ */
+  function h(tag, props) {
+    var e = document.createElement(tag), i, k, v;
+    props = props || {};
+    for (k in props) {
+      v = props[k];
+      if (v === null || v === undefined || v === false) continue;
+      if (k === "class") e.className = v;
+      else if (k === "text") e.textContent = v;
+      else if (k.slice(0, 2) === "on") e.addEventListener(k.slice(2).toLowerCase(), v);
+      else if (k === "value" || k === "checked" || k === "disabled" || k === "selected") e[k] = v;
+      else e.setAttribute(k, v === true ? "" : v);
+    }
+    for (i = 2; i < arguments.length; i++) add(e, arguments[i]);
+    return e;
+  }
+  function add(e, kid) {
+    if (kid === null || kid === undefined || kid === false) return;
+    if (Array.isArray(kid)) { kid.forEach(function (x) { add(e, x); }); return; }
+    e.appendChild(kid.nodeType ? kid : document.createTextNode(String(kid)));
+  }
+  var $ = function (s, r) { return (r || document).querySelector(s); };
+
+  var ICONS = {
+    cup: '<path d="M4 8h13v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V8z"/><path d="M17 9h1.5a2.5 2.5 0 0 1 0 5H17"/><path d="M8 3v2M12 3v2"/>',
+    dash: '<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>',
+    store: '<path d="M3 9l1.5-5h15L21 9"/><path d="M4 9v11h16V9"/><path d="M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0"/><path d="M10 20v-5h4v5"/>',
+    tag: '<path d="M3 12V4h8l10 10-8 8L3 12z"/><circle cx="7.5" cy="8.5" r="1.3"/>',
+    wallet: '<path d="M3 7a2 2 0 0 1 2-2h13v4"/><path d="M3 7v11a2 2 0 0 0 2 2h15V9H5a2 2 0 0 1-2-2z"/><circle cx="16.5" cy="14.5" r="1.2"/>',
+    pulse: '<path d="M3 12h4l2-6 4 12 2-6h6"/>',
+    users: '<circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M16 5.2a3.2 3.2 0 0 1 0 5.6M18 14.3c2 .8 3.5 2.8 3.5 5.7"/>',
+    gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
+    moon: '<path d="M21 13A9 9 0 1 1 11 3a7 7 0 0 0 10 10z"/>',
+    sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+    out: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/>',
+    menu: '<path d="M3 6h18M3 12h18M3 18h18"/>',
+    x: '<path d="M18 6L6 18M6 6l12 12"/>',
+    search: '<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>',
+    plus: '<path d="M12 5v14M5 12h14"/>',
+    check: '<path d="M20 6L9 17l-5-5"/>',
+    clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+    alert: '<path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/>',
+    down: '<path d="M12 3v12M7 10l5 5 5-5M4 21h16"/>',
+    key: '<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M16 7l3 3"/>',
+    ext: '<path d="M14 3h7v7M10 14L21 3M19 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5"/>',
+    trash: '<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>',
+    inbox: '<path d="M3 13l3-8h12l3 8v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-6z"/><path d="M3 13h5l1 3h6l1-3h5"/>',
+    rupee: '<path d="M6 4h12M6 9h12M9 4c5 0 7 2 7 5s-2 5-7 5l7 6"/>'
+  };
+  function icon(name) {
+    var t = document.createElement("template");
+    t.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + (ICONS[name] || "") + "</svg>";
+    return t.content.firstChild;
+  }
+
+  /* ============ formatting ============ */
+  var money = function (n) { return "\u20B9" + Number(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 }); };
+  var nf = function (n) { return Number(n || 0).toLocaleString("en-IN"); };
+  function fdate(s) {
+    if (!s) return "\u2014";
+    var d = new Date(String(s).length <= 10 ? s + "T00:00:00" : String(s).replace(" ", "T"));
+    return isNaN(d) ? String(s).slice(0, 10) : d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  }
+  function fdt(s) {
+    if (!s) return "\u2014";
+    var d = new Date(String(s).replace(" ", "T"));
+    return isNaN(d) ? String(s) : d.toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+  }
+  function ago(s) {
+    var d = new Date(String(s).replace(" ", "T")), m = Math.round((Date.now() - d) / 60000);
+    if (isNaN(m)) return "";
+    if (m < 1) return "just now"; if (m < 60) return m + " min ago";
+    if (m < 1440) return Math.round(m / 60) + " h ago";
+    return Math.round(m / 1440) + " d ago";
+  }
+  var STATE_LABEL = { active: "Active", trial: "Trial", pending: "Pending", expired: "Expired", suspended: "Suspended" };
+  function pill(state) { return h("span", { class: "pill " + state, text: STATE_LABEL[state] || state }); }
+  function leftText(t) {
+    if (t.days_left === null || t.days_left === undefined) return h("div", { class: "left ok", text: "No expiry" });
+    if (t.days_left < 0) return h("div", { class: "left bad", text: "Ended " + (-t.days_left) + " d ago" });
+    if (t.days_left <= 7) return h("div", { class: "left warn", text: t.days_left === 0 ? "Ends today" : t.days_left + " d left" });
+    return h("div", { class: "left ok", text: t.days_left + " d left" });
+  }
+
+  /* ============ state + API ============ */
+  var TK = "bbPlatformToken";
+  var S = { token: localStorage.getItem(TK) || "", admin: null, plans: [], view: "", cafe: { status: "all", plan: "", sort: "newest", q: "" }, pending: 0, tab: "overview" };
+  var isOwner = function () { return S.admin && S.admin.role === "owner"; };
+
   function api(path, opt) {
     opt = opt || {};
-    var h = { "Content-Type": "application/json" };
-    if (token) h.Authorization = "Bearer " + token;
-    return fetch("/api/platform" + path, { method: opt.method || "GET", headers: h, body: opt.body ? JSON.stringify(opt.body) : undefined })
-      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) {
-        if (r.status === 401 && token) { logout(); }
-        if (!r.ok) throw new Error(d.message || "Request failed.");
-        return d;
-      }); });
-  }
-  function el(tag, text, cls) { var e = document.createElement(tag); if (text !== undefined && text !== null) e.textContent = text; if (cls) e.className = cls; return e; }
-  function open(id) { $(id).classList.add("open"); }
-  function close(id) { $(id).classList.remove("open"); }
-  function fmtDate(s) { if (!s) return "-"; var d = new Date(String(s).replace(" ", "T")); return isNaN(d) ? String(s).slice(0, 10) : d.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" }); }
-
-  function logout() { token = ""; localStorage.removeItem(TK); show(); }
-  function show() {
-    $("loginView").style.display = token ? "none" : "block";
-    $("appView").style.display = token ? "block" : "none";
-    if (token) { $("signupUrl").textContent = location.origin + "/signup"; load(); }
-  }
-
-  /* login */
-  function doLogin() {
-    $("lerr").textContent = ""; $("lbtn").disabled = true;
-    api("/login", { method: "POST", body: { email: $("lemail").value, password: $("lpass").value } })
-      .then(function (d) { token = d.token; localStorage.setItem(TK, token); $("whoami").textContent = d.admin.email; $("lpass").value = ""; show(); })
-      .catch(function (e) { $("lerr").textContent = e.message; })
-      .then(function () { $("lbtn").disabled = false; });
-  }
-  $("lbtn").onclick = doLogin;
-  $("lpass").addEventListener("keydown", function (e) { if (e.key === "Enter") doLogin(); });
-  $("outBtn").onclick = logout;
-
-  /* list */
-  var searchTimer;
-  $("search").addEventListener("input", function () { clearTimeout(searchTimer); searchTimer = setTimeout(load, 300); });
-  $("statusF").onchange = load;
-  function load() {
-    var qs = "?status=" + encodeURIComponent($("statusF").value) + "&q=" + encodeURIComponent($("search").value.trim());
-    api("/tenants" + qs).then(function (d) {
-      $("sTotal").textContent = d.summary.total; $("sActive").textContent = d.summary.active; $("sSusp").textContent = d.summary.suspended;
-      $("sSignup").textContent = d.signup_open ? "Open" : "Closed";
-      var body = $("rows"); body.textContent = "";
-      $("empty").style.display = d.tenants.length ? "none" : "block";
-      d.tenants.forEach(function (t) {
-        var tr = el("tr");
-        var c1 = el("td"); c1.appendChild(el("b", t.name)); c1.appendChild(el("div", t.slug, "muted")); tr.appendChild(c1);
-        var c2 = el("td"); c2.appendChild(el("div", t.owner_name)); c2.appendChild(el("div", t.owner_email, "muted")); tr.appendChild(c2);
-        tr.appendChild(el("td", t.plan));
-        var c4 = el("td", t.subscription_ends_at ? fmtDate(t.subscription_ends_at) : "No expiry");
-        if (t.expired) { c4.appendChild(document.createTextNode(" ")); c4.appendChild(el("span", "expired", "pill expired")); }
-        tr.appendChild(c4);
-        var c5 = el("td"); c5.appendChild(el("span", t.status, "pill " + (t.status === "active" ? "active" : "suspended"))); tr.appendChild(c5);
-        tr.appendChild(el("td", fmtDate(t.created_at), "muted"));
-        var c7 = el("td"); var b = el("button", "Manage", "ghost small"); b.onclick = function () { manage(t.id); }; c7.appendChild(b); tr.appendChild(c7);
-        body.appendChild(tr);
+    var headers = { "Content-Type": "application/json" };
+    if (S.token) headers.Authorization = "Bearer " + S.token;
+    return fetch("/api/platform" + path, { method: opt.method || "GET", headers: headers, body: opt.body ? JSON.stringify(opt.body) : undefined })
+      .then(function (r) {
+        return r.json().catch(function () { return {}; }).then(function (d) {
+          if (r.status === 401 && S.token && path !== "/login") { signOut(true); }
+          if (!r.ok) throw new Error(d.message || "Something went wrong.");
+          return d;
+        });
       });
-    }).catch(function (e) { toast(e.message); });
+  }
+  function download(path, filename) {
+    return fetch("/api/platform" + path, { headers: { Authorization: "Bearer " + S.token } }).then(function (r) {
+      if (!r.ok) return r.json().then(function (d) { throw new Error(d.message || "Download failed."); });
+      return r.blob();
+    }).then(function (b) {
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(b); a.download = filename; document.body.appendChild(a); a.click();
+      setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+    });
+  }
+  function qs(o) {
+    var p = [];
+    Object.keys(o).forEach(function (k) { if (o[k] !== "" && o[k] !== null && o[k] !== undefined && o[k] !== "all") p.push(k + "=" + encodeURIComponent(o[k])); });
+    return p.length ? "?" + p.join("&") : "";
   }
 
-  /* manage */
-  function manage(id) {
-    $("mErr").textContent = ""; $("mPw").value = ""; $("mDel").value = "";
-    api("/tenants/" + id).then(function (d) {
-      var t = d.tenant, s = d.stats; current = t;
-      $("mName").textContent = t.name;
-      $("mMeta").textContent = "Code: " + t.slug + "  |  Owner: " + t.owner_name + " (" + t.owner_email + ")" + (t.owner_phone ? "  |  " + t.owner_phone : "");
-      var kv = $("mStats"); kv.textContent = "";
-      [["Staff", s.staff], ["Tables", s.tables], ["Menu items", s.items], ["Orders", s.orders], ["Today", s.orders_today], ["Last order", s.last_order_at ? fmtDate(s.last_order_at) : "-"]].forEach(function (x) {
-        var d1 = el("div", x[0]); d1.insertBefore(el("b", x[1]), d1.firstChild); kv.appendChild(d1);
-      });
-      $("mPlan").value = t.plan; if ($("mPlan").value !== t.plan) { var o = el("option", t.plan); $("mPlan").appendChild(o); $("mPlan").value = t.plan; }
-      $("mEnd").value = t.subscription_ends_at || ""; $("mStatus").value = t.status; $("mCafe").value = t.name; $("mNotes").value = t.notes || "";
-      $("mSlug").textContent = t.slug; open("manageOv");
-    }).catch(function (e) { toast(e.message); });
+  /* ============ toast / modal / confirm ============ */
+  function toast(msg, isErr) {
+    var t = h("div", { class: "toast" + (isErr ? " err" : "") }, icon(isErr ? "alert" : "check"), h("span", { text: msg }));
+    $("#toasts").appendChild(t);
+    setTimeout(function () { t.remove(); }, isErr ? 5000 : 2800);
   }
-  $("mClose").onclick = function () { close("manageOv"); };
-  $("mSave").onclick = function () {
-    $("mErr").textContent = "";
-    api("/tenants/" + current.id, { method: "PATCH", body: { plan: $("mPlan").value, subscription_ends_at: $("mEnd").value || "", status: $("mStatus").value, name: $("mCafe").value, notes: $("mNotes").value } })
-      .then(function () { toast("Saved."); close("manageOv"); load(); })
-      .catch(function (e) { $("mErr").textContent = e.message; });
+  var openLayers = [];
+  function layer(el) {
+    document.body.appendChild(el); openLayers.push(el);
+    return function close() { el.remove(); openLayers = openLayers.filter(function (x) { return x !== el; }); };
+  }
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && openLayers.length) { openLayers[openLayers.length - 1].remove(); openLayers.pop(); }
+  });
+  // body: DOM element. buttons: [{text, kind, onClick(close, btn)}]
+  function modal(title, sub, body, buttons) {
+    var close;
+    var foot = h("footer", {}, (buttons || []).map(function (b) {
+      var el = h("button", { class: "btn " + (b.kind || "ghost"), text: b.text });
+      el.addEventListener("click", function () { b.onClick ? b.onClick(close, el) : close(); });
+      return el;
+    }));
+    var box = h("div", { class: "modal", role: "dialog", "aria-modal": "true" }, h("header", {}, h("h3", { text: title }), sub ? h("p", { text: sub }) : null), h("div", { class: "body" }, body), foot);
+    var ov = h("div", { class: "ov", onclick: function (e) { if (e.target === ov) close(); } }, box);
+    close = layer(ov);
+    var first = ov.querySelector("input,select,textarea"); if (first) setTimeout(function () { first.focus(); }, 30);
+    return close;
+  }
+  function confirmBox(title, text, okText, danger) {
+    return new Promise(function (res) {
+      modal(title, null, h("p", { text: text }), [
+        { text: "Cancel", onClick: function (c) { c(); res(false); } },
+        { text: okText || "Confirm", kind: danger ? "danger" : "", onClick: function (c) { c(); res(true); } }
+      ]);
+    });
+  }
+  function field(label, input, hint) { return h("div", { class: "field" }, h("label", { class: "f", text: label }), input, hint ? h("div", { class: "hint", text: hint }) : null); }
+  function busy(btn, p) {
+    btn.disabled = true;
+    return p.then(function (r) { btn.disabled = false; return r; }, function (e) { btn.disabled = false; toast(e.message, true); throw e; });
+  }
+  function empty(title, text, ic) { return h("div", { class: "empty" }, icon(ic || "inbox"), h("b", { text: title }), h("div", { text: text || "" })); }
+  function skeleton(n) { var a = []; for (var i = 0; i < (n || 4); i++) a.push(h("div", { class: "skel", style: "height:64px;margin-bottom:12px" })); return h("div", {}, a); }
+
+  /* ============ theme ============ */
+  function applyTheme(t) { document.documentElement.setAttribute("data-theme", t); localStorage.setItem("bbPlatformTheme", t); }
+  applyTheme(localStorage.getItem("bbPlatformTheme") || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"));
+
+  /* ============ login ============ */
+  function renderLogin() {
+    var email = h("input", { type: "email", autocomplete: "username", placeholder: "owner@yourdomain.com" });
+    var pass = h("input", { type: "password", autocomplete: "current-password", placeholder: "Your password" });
+    var err = h("div", { class: "err" });
+    var btn = h("button", { class: "btn", style: "width:100%", text: "Sign in" });
+    function go() {
+      err.textContent = "";
+      busy(btn, api("/login", { method: "POST", body: { email: email.value, password: pass.value } })).then(function (d) {
+        S.token = d.token; S.admin = d.admin; localStorage.setItem(TK, S.token); boot();
+      }).catch(function (e) { err.textContent = e.message; });
+    }
+    btn.addEventListener("click", go);
+    pass.addEventListener("keydown", function (e) { if (e.key === "Enter") go(); });
+    var app = $("#app"); app.textContent = "";
+    app.appendChild(h("div", { class: "lg" },
+      h("div", { class: "lg-art" },
+        h("div", { class: "brand" }, h("div", { class: "logo" }, icon("cup")), h("div", {}, h("b", { text: "Chai Order System" }), h("span", { text: "Owner panel" }))),
+        h("div", {}, h("h2", { text: "Run every cafe from one place." }), h("p", { text: "Approve new cafes, manage plans and subscriptions, and see how the whole platform is doing." })),
+        h("div", { class: "muted", style: "color:rgba(255,255,255,.6);position:relative", text: "\u00A9 " + new Date().getFullYear() + " Chai Order System" })),
+      h("div", { class: "lg-form" }, h("div", { class: "box" },
+        h("h2", { text: "Welcome back" }), h("p", { class: "muted", style: "margin-bottom:20px", text: "Sign in to the owner panel." }),
+        field("Email", email), field("Password", pass), btn, err))));
+  }
+
+  /* ============ shell + router ============ */
+  var NAV = [
+    { id: "dashboard", label: "Dashboard", icon: "dash" },
+    { id: "cafes", label: "Cafes", icon: "store", badge: true },
+    { id: "plans", label: "Plans", icon: "tag" },
+    { id: "payments", label: "Payments", icon: "wallet" },
+    { id: "activity", label: "Activity", icon: "pulse" },
+    { id: "team", label: "Team", icon: "users", owner: true },
+    { id: "settings", label: "Settings", icon: "gear", owner: true }
+  ];
+  var VIEWS = {};
+  function shell() {
+    var app = $("#app"); app.textContent = "";
+    var side = h("aside", { class: "side", id: "side" },
+      h("div", { class: "brand" }, h("div", { class: "logo" }, icon("cup")), h("div", {}, h("b", { text: "Chai Order" }), h("span", { text: "Owner panel" }))),
+      h("nav", { class: "nav" }, NAV.filter(function (n) { return !n.owner || isOwner(); }).map(function (n) {
+        return h("a", { "data-id": n.id, onclick: function () { location.hash = "#/" + n.id; side.classList.remove("open"); } }, icon(n.icon), h("span", { text: n.label }), n.badge ? h("span", { class: "badge hide", id: "navBadge" }) : null);
+      })),
+      h("div", { class: "side-foot" },
+        h("div", { class: "me" }, h("div", { class: "avatar", text: (S.admin.name || S.admin.email || "?").trim().charAt(0).toUpperCase() }), h("div", {}, h("b", { text: S.admin.name || S.admin.email }), h("span", { text: S.admin.role === "owner" ? "Owner" : "Support (view only)" }))),
+        h("div", { class: "side-btns" },
+          h("button", { onclick: function () { applyTheme(document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark"); }, title: "Switch theme" }, icon("moon"), "Theme"),
+          h("button", { onclick: function () { signOut(); } }, icon("out"), "Sign out"))));
+    var main = h("main", { class: "main" },
+      h("div", { class: "top" }, h("button", { class: "hamb", "aria-label": "Menu", onclick: function () { side.classList.toggle("open"); } }, icon("menu")),
+        h("div", {}, h("h1", { id: "pTitle" }), h("p", { id: "pSub" })), h("div", { class: "grow" }), h("div", { id: "pActions", style: "display:flex;gap:10px;flex-wrap:wrap" })),
+      h("div", { class: "content", id: "content" }));
+    app.appendChild(h("div", { class: "shell" }, side, main));
+  }
+  function setHead(title, sub, actions) {
+    $("#pTitle").textContent = title; $("#pSub").textContent = sub || "";
+    var a = $("#pActions"); a.textContent = ""; add(a, actions || []);
+  }
+  function refreshBadge() {
+    api("/tenants" + qs({ status: "pending" })).then(function (d) {
+      S.pending = d.tenants.length;
+      var b = $("#navBadge"); if (!b) return;
+      b.textContent = S.pending; b.classList.toggle("hide", !S.pending);
+    }).catch(function () {});
+  }
+  function route() {
+    var raw = (location.hash || "#/dashboard").replace(/^#\/?/, ""), parts = raw.split("?"), id = parts[0] || "dashboard";
+    if (!VIEWS[id] || (NAV.filter(function (n) { return n.id === id; })[0] || {}).owner && !isOwner()) { id = "dashboard"; }
+    if (parts[1]) {
+      parts[1].split("&").forEach(function (kv) { var p = kv.split("="); if (p[0] === "status") S.cafe.status = decodeURIComponent(p[1] || "all"); });
+    }
+    S.view = id;
+    document.querySelectorAll(".nav a").forEach(function (a) { a.classList.toggle("on", a.getAttribute("data-id") === id); });
+    var c = $("#content"); c.textContent = ""; c.appendChild(skeleton(4));
+    VIEWS[id](c);
+  }
+  function refreshView() { if (S.view && VIEWS[S.view]) { var c = $("#content"); VIEWS[S.view](c, true); } refreshBadge(); }
+  function signOut(expired) {
+    S.token = ""; S.admin = null; localStorage.removeItem(TK);
+    openLayers.forEach(function (e) { e.remove(); }); openLayers = [];
+    renderLogin(); if (expired) toast("Please sign in again.", true);
+  }
+  function boot() {
+    if (!S.token) return renderLogin();
+    api("/me").then(function (d) {
+      S.admin = d.admin;
+      return api("/plans");
+    }).then(function (d) {
+      S.plans = d.plans; shell(); refreshBadge();
+      if (!S.bound) { S.bound = true; window.addEventListener("hashchange", route); } route();
+    }).catch(function () { if (S.token) { /* 401 already handled */ } });
+  }
+
+  /* ============ charts (plain SVG) ============ */
+  var NS = "http://www.w3.org/2000/svg";
+  function sv(tag, attrs, text) {
+    var e = document.createElementNS(NS, tag), k;
+    for (k in attrs || {}) e.setAttribute(k, attrs[k]);
+    if (text !== undefined) e.textContent = text;
+    return e;
+  }
+  function monthLabel(ym) { var p = ym.split("-"); return new Date(+p[0], +p[1] - 1, 1).toLocaleString("en", { month: "short" }); }
+  function barChart(items, fmtv, color) {
+    var W = 360, H = 170, top = 26, bot = 24, gap = 12, n = items.length, bw = (W - gap * (n + 1)) / n;
+    var max = Math.max.apply(null, items.map(function (i) { return i.value; }).concat([1]));
+    var svg = sv("svg", { viewBox: "0 0 " + W + " " + H, width: "100%", role: "img" });
+    svg.appendChild(sv("line", { x1: 0, y1: H - bot, x2: W, y2: H - bot, stroke: "var(--line)" }));
+    items.forEach(function (it, i) {
+      var x = gap + i * (bw + gap), bh = Math.max(it.value / max * (H - top - bot), it.value > 0 ? 3 : 0), y = H - bot - bh;
+      svg.appendChild(sv("rect", { x: x, y: y, width: bw, height: bh, rx: 6, fill: color || "var(--brand)", opacity: i === n - 1 ? 1 : .55 }));
+      svg.appendChild(sv("text", { x: x + bw / 2, y: y - 7, "text-anchor": "middle", "font-size": 11, "font-weight": 600, fill: "var(--ink-2)" }, it.value > 0 ? fmtv(it.value) : ""));
+      svg.appendChild(sv("text", { x: x + bw / 2, y: H - 7, "text-anchor": "middle", "font-size": 11, fill: "var(--muted)" }, it.label));
+    });
+    return svg;
+  }
+  var PALETTE = ["#0f7a43", "#2563eb", "#f59e0b", "#8b5cf6", "#ef4444", "#14b8a6", "#64748b"];
+  function donut(items) {
+    var total = items.reduce(function (a, i) { return a + i.n; }, 0) || 1, r = 42, C = 2 * Math.PI * r, off = 0;
+    var svg = sv("svg", { viewBox: "0 0 110 110", width: 130, height: 130 });
+    svg.appendChild(sv("circle", { cx: 55, cy: 55, r: r, fill: "none", stroke: "var(--gray-soft)", "stroke-width": 14 }));
+    items.forEach(function (it, i) {
+      var len = it.n / total * C;
+      svg.appendChild(sv("circle", { cx: 55, cy: 55, r: r, fill: "none", stroke: PALETTE[i % PALETTE.length], "stroke-width": 14, "stroke-dasharray": len + " " + (C - len), "stroke-dashoffset": -off, transform: "rotate(-90 55 55)" }));
+      off += len;
+    });
+    svg.appendChild(sv("text", { x: 55, y: 53, "text-anchor": "middle", "font-size": 20, "font-weight": 700, fill: "var(--ink)" }, String(items.reduce(function (a, i) { return a + i.n; }, 0))));
+    svg.appendChild(sv("text", { x: 55, y: 68, "text-anchor": "middle", "font-size": 9, fill: "var(--muted)" }, "cafes"));
+    return svg;
+  }
+
+  /* ============ activity wording ============ */
+  var ACT = {
+    signup: ["New sign-up", "blue", "users"], approve: ["Approved", "", "check"], reject: ["Rejected", "red", "x"], create: ["Cafe created", "", "plus"],
+    suspend: ["Suspended", "red", "alert"], activate: ["Activated", "", "check"], update: ["Edited", "gray", "gear"], extend: ["Extended", "", "clock"],
+    payment: ["Payment", "", "rupee"], impersonate: ["Opened as cafe", "amber", "key"], reset_password: ["Password reset", "amber", "key"], export: ["Data export", "gray", "down"],
+    delete: ["Deleted", "red", "trash"], plan: ["Plan", "gray", "tag"], team: ["Team", "gray", "users"], settings: ["Settings", "gray", "gear"], login: ["Sign-in", "gray", "out"], password: ["Password", "gray", "key"]
   };
-  $("mReset").onclick = function () {
-    api("/tenants/" + current.id + "/reset-password", { method: "POST", body: { password: $("mPw").value } })
-      .then(function (d) { toast(d.message); $("mPw").value = ""; }).catch(function (e) { $("mErr").textContent = e.message; });
-  };
-  $("mDelBtn").onclick = function () {
-    if (!confirm("Delete this cafe and ALL its data permanently?")) return;
-    api("/tenants/" + current.id + "?confirm=" + encodeURIComponent($("mDel").value.trim()), { method: "DELETE" })
-      .then(function (d) { toast(d.message); close("manageOv"); load(); }).catch(function (e) { $("mErr").textContent = e.message; });
+  function actRow(a) {
+    var i = ACT[a.action] || [a.action, "gray", "pulse"];
+    return h("div", { class: "li" }, h("div", { class: "dot " + i[1] }, icon(i[2])),
+      h("div", { class: "grow" }, h("b", { text: i[0] + (a.tenant_name ? " \u00B7 " + a.tenant_name : "") }), h("small", { text: (a.details || "") + (a.details ? " \u00B7 " : "") + (a.admin_name || "System") })),
+      h("small", { text: ago(a.created_at), title: fdt(a.created_at) }));
+  }
+  function loadError(c, e) { c.textContent = ""; c.appendChild(h("div", { class: "card" }, empty("Could not load this page", e.message, "alert"))); }
+
+  /* ============ DASHBOARD ============ */
+  function stat(label, value, ic, tone, link) {
+    return h("div", { class: "card stat" + (link ? " link" : ""), onclick: link ? function () { location.hash = link; } : null },
+      h("div", { class: "ic " + (tone || "") }, icon(ic)), h("b", { text: value }), h("span", { text: label }));
+  }
+  function cafeLine(t, actions) {
+    return h("div", { class: "li" },
+      h("div", { class: "grow", style: "cursor:pointer", onclick: function () { openCafe(t.id); } }, h("b", { text: t.name }), h("small", { class: "ell", text: t.owner_name + " \u00B7 " + t.owner_email })),
+      h("div", { class: "acts" }, t.state === "pending" ? h("small", { text: "Joined " + fdate(t.created_at) }) : leftText(t), actions || null));
+  }
+  VIEWS.dashboard = function (c) {
+    setHead("Dashboard", "How the whole platform is doing.", [h("button", { class: "btn ghost", onclick: function () { refreshView(); } }, "Refresh")]);
+    api("/dashboard").then(function (d) {
+      var k = d.counts; c.textContent = "";
+      c.appendChild(h("div", { class: "cards" },
+        stat("Total cafes", nf(k.total), "store", "", "#/cafes"),
+        stat("Active", nf(k.active), "check", "", "#/cafes?status=active"),
+        stat("Waiting for approval", nf(k.pending), "clock", "amber", "#/cafes?status=pending"),
+        stat("On free trial", nf(k.trial), "tag", "blue", "#/cafes?status=trial"),
+        stat("Ending in 7 days", nf(k.expiring), "alert", "amber", "#/cafes?status=expiring"),
+        stat("Expired", nf(k.expired), "alert", "red", "#/cafes?status=expired"),
+        stat("Suspended", nf(k.suspended), "x", "red", "#/cafes?status=suspended")));
+
+      var lv = d.live;
+      c.appendChild(h("div", { class: "dgrid" },
+        h("div", { class: "card pad hero" }, h("h3", { text: "Sales today across all cafes" }), h("div", { class: "sub", text: "From " + lv.cafes_counted + " active cafe" + (lv.cafes_counted === 1 ? "" : "s") }),
+          h("div", { class: "big", text: money(lv.today_sales) }),
+          h("div", { class: "row" }, h("div", {}, h("span", { text: "Orders today" }), h("b", { text: nf(lv.today_orders) })), h("div", {}, h("span", { text: "Last 30 days" }), h("b", { text: money(lv.month_sales) })), h("div", {}, h("span", { text: "Orders, 30 days" }), h("b", { text: nf(lv.month_orders) })))),
+        h("div", { class: "card pad" }, h("h3", { text: "New cafes" }), h("div", { class: "sub", text: "Sign-ups, last 6 months" }),
+          barChart(d.signups.map(function (m) { return { label: monthLabel(m.month), value: m.n }; }), nf)),
+        h("div", { class: "card pad" }, h("h3", { text: "Your revenue" }), h("div", { class: "sub", text: money(d.revenue.month) + " this month \u00B7 " + money(d.revenue.total) + " total" }),
+          barChart(d.revenue_months.map(function (m) { return { label: monthLabel(m.month), value: m.amount }; }), function (v) { return v >= 1000 ? Math.round(v / 100) / 10 + "k" : String(v); }, "#2563eb"))));
+
+      var mix = d.plan_mix, legend = h("div", { class: "legend" }, mix.map(function (m, i) { return h("div", {}, h("i", { style: "background:" + PALETTE[i % PALETTE.length] }), h("span", { text: m.name }), h("b", { text: m.n })); }));
+      var topList = h("div", { class: "list" }, lv.top.length ? lv.top.map(function (t, i) {
+        return h("div", { class: "li" }, h("div", { class: "dot " + (i === 0 ? "amber" : "gray"), text: String(i + 1), style: "font-weight:700" }), h("div", { class: "grow" }, h("b", { text: t.name }), h("small", { text: nf(t.month_orders) + " orders" })), h("b", { text: money(t.month_sales) }));
+      }) : empty("No sales yet", "Top cafes appear when bills are paid."));
+      c.appendChild(h("div", { class: "dgrid3" },
+        h("div", { class: "card pad" }, h("h3", { text: "Plans in use" }), h("div", { class: "sub", text: "Cafes by plan" }), mix.length ? h("div", { style: "display:flex;gap:18px;align-items:center" }, donut(mix), legend) : empty("No cafes yet")),
+        h("div", { class: "card pad" }, h("h3", { text: "Top cafes" }), h("div", { class: "sub", text: "By sales, last 30 days" }), topList),
+        h("div", { class: "card pad" }, h("h3", { text: "Recent activity" }), h("div", { class: "sub", text: "What happened lately" }), h("div", { class: "list" }, d.activity.length ? d.activity.map(actRow) : empty("Nothing yet")))));
+
+      function box(title, sub, list, kind) {
+        return h("div", { class: "card pad" }, h("h3", { text: title }), h("div", { class: "sub", text: sub }), h("div", { class: "list" }, list.length ? list.map(function (t) {
+          var act = null;
+          if (isOwner() && kind === "pending") act = h("div", { style: "display:flex;gap:6px" },
+            h("button", { class: "btn sm", text: "Approve", onclick: function (e) { cafeAction(e.currentTarget, t, "approve"); } }),
+            h("button", { class: "btn sm ghost", text: "Reject", onclick: function (e) { cafeAction(e.currentTarget, t, "reject"); } }));
+          else if (isOwner()) act = h("button", { class: "btn sm soft", text: "+30 days", onclick: function (e) { cafeAction(e.currentTarget, t, "extend", 30); } });
+          return cafeLine(t, act);
+        }) : empty("All clear", kind === "pending" ? "No cafes are waiting." : "Nothing here.", "check")));
+      }
+      c.appendChild(h("div", { class: "dgrid3" },
+        box("Waiting for approval", "Review and approve new sign-ups", d.pending, "pending"),
+        box("Ending in 7 days", "Remind them to renew", d.expiring, "expiring"),
+        box("Expired", "Read-only until they renew", d.expired, "expired")));
+    }).catch(function (e) { loadError(c, e); });
   };
 
-  /* new cafe */
-  $("newBtn").onclick = function () { ["nCafe", "nOwner", "nPhone", "nEmail", "nPass", "nEnd"].forEach(function (i) { $(i).value = ""; }); $("nErr").textContent = ""; open("newOv"); };
-  $("nClose").onclick = function () { close("newOv"); };
-  $("nSave").onclick = function () {
-    $("nErr").textContent = ""; $("nSave").disabled = true;
-    api("/tenants", { method: "POST", body: { cafe_name: $("nCafe").value, owner_name: $("nOwner").value, phone: $("nPhone").value, email: $("nEmail").value, password: $("nPass").value, plan: $("nPlan").value, subscription_ends_at: $("nEnd").value || "" } })
-      .then(function () { toast("Cafe created."); close("newOv"); load(); })
-      .catch(function (e) { $("nErr").textContent = e.message; })
-      .then(function () { $("nSave").disabled = false; });
+  // approve / reject / extend from any list
+  function cafeAction(btn, t, what, days) {
+    var run;
+    if (what === "approve") run = function () { return api("/tenants/" + t.id + "/approve", { method: "POST" }); };
+    else if (what === "extend") run = function () { return api("/tenants/" + t.id + "/extend", { method: "POST", body: { days: days } }); };
+    else run = function () { return confirmBox("Reject this request?", t.name + " (" + t.owner_email + ") will be removed. They will not be able to take another free trial.", "Reject", true).then(function (ok) { if (!ok) return null; return api("/tenants/" + t.id + "/reject", { method: "POST" }); }); };
+    busy(btn, run()).then(function (r) { if (r) { toast(r.message); refreshView(); } }).catch(function () {});
+  }
+
+  /* ============ CAFES ============ */
+  var CHIPS = [["all", "All"], ["active", "Active"], ["pending", "Pending"], ["trial", "Trial"], ["expiring", "Ending soon"], ["expired", "Expired"], ["suspended", "Suspended"]];
+  function matches(t, f) {
+    if (f === "all") return true;
+    if (f === "active") return t.state === "active" || t.state === "trial";
+    if (f === "expiring") return t.state !== "pending" && t.state !== "suspended" && t.days_left !== null && t.days_left >= 0 && t.days_left <= 7;
+    return t.state === f;
+  }
+  VIEWS.cafes = function (c) {
+    setHead("Cafes", "Everyone using your system.", [
+      h("button", { class: "btn ghost", onclick: function () { download("/tenants.csv" + qs({ status: S.cafe.status, plan: S.cafe.plan, q: S.cafe.q }), "cafes.csv").catch(function (e) { toast(e.message, true); }); } }, icon("down"), "Export CSV"),
+      isOwner() ? h("button", { class: "btn", onclick: newCafeModal }, icon("plus"), "New cafe") : null]);
+    api("/tenants").then(function (d) {
+      var all = d.tenants, chips = h("div", { class: "chips" }), tbody = h("tbody"), wrap = h("div", { class: "card tablewrap" });
+      var search = h("input", { placeholder: "Search by cafe, owner, email or mobile", value: S.cafe.q, oninput: function (e) { S.cafe.q = e.target.value; draw(); } });
+      var planSel = h("select", { onchange: function (e) { S.cafe.plan = e.target.value; draw(); } }, h("option", { value: "", text: "All plans" }), S.plans.map(function (p) { return h("option", { value: p.code, text: p.name, selected: S.cafe.plan === p.code }); }));
+      var sortSel = h("select", { onchange: function (e) { S.cafe.sort = e.target.value; draw(); } }, [["newest", "Newest first"], ["oldest", "Oldest first"], ["name", "Name A-Z"], ["expiry", "Ending soonest"]].map(function (o) { return h("option", { value: o[0], text: o[1], selected: S.cafe.sort === o[0] }); }));
+      c.textContent = "";
+      c.appendChild(h("div", { class: "toolbar" }, h("div", { class: "search" }, icon("search"), search), planSel, sortSel));
+      c.appendChild(chips); c.appendChild(wrap);
+      function draw() {
+        var q = S.cafe.q.trim().toLowerCase();
+        var base = all.filter(function (t) {
+          return (!S.cafe.plan || t.plan === S.cafe.plan) && (!q || [t.name, t.owner_name, t.owner_email, t.owner_phone, t.slug].join(" ").toLowerCase().indexOf(q) > -1);
+        });
+        chips.textContent = "";
+        CHIPS.forEach(function (ch) {
+          var n = base.filter(function (t) { return matches(t, ch[0]); }).length;
+          chips.appendChild(h("button", { class: "chip" + (S.cafe.status === ch[0] ? " on" : ""), onclick: function () { S.cafe.status = ch[0]; draw(); } }, ch[1], h("em", { text: n })));
+        });
+        var rows = base.filter(function (t) { return matches(t, S.cafe.status); });
+        var by = { newest: function (a, b) { return b.id - a.id; }, oldest: function (a, b) { return a.id - b.id; }, name: function (a, b) { return a.name.localeCompare(b.name); },
+          expiry: function (a, b) { return (a.days_left === null ? 1e9 : a.days_left) - (b.days_left === null ? 1e9 : b.days_left); } };
+        rows.sort(by[S.cafe.sort] || by.newest);
+        wrap.textContent = "";
+        if (!rows.length) { wrap.appendChild(empty(all.length ? "No cafes match" : "No cafes yet", all.length ? "Try a different filter or search." : "Cafes appear here when owners sign up at /signup, or add one yourself.", "store")); return; }
+        tbody = h("tbody", {}, rows.map(function (t) {
+          return h("tr", { class: "click", onclick: function () { openCafe(t.id); } },
+            h("td", {}, h("div", { class: "name", text: t.name }), h("div", { class: "small", text: t.slug })),
+            h("td", {}, h("div", { text: t.owner_name }), h("div", { class: "small", text: t.owner_email + (t.owner_phone ? " \u00B7 " + t.owner_phone : "") })),
+            h("td", {}, h("span", { class: "pill plain", text: t.plan_name })),
+            h("td", {}, h("div", { text: t.subscription_ends_at ? fdate(t.subscription_ends_at) : (t.state === "pending" ? "Starts on approval" : "No expiry") }), t.state === "pending" || !t.subscription_ends_at ? null : leftText(t)),
+            h("td", {}, pill(t.state)),
+            h("td", { class: "small", text: fdate(t.created_at) }));
+        }));
+        wrap.appendChild(h("table", {}, h("thead", {}, h("tr", {}, ["Cafe", "Owner", "Plan", "Valid till", "Status", "Joined"].map(function (x) { return h("th", { text: x }); }))), tbody));
+      }
+      draw();
+    }).catch(function (e) { loadError(c, e); });
   };
 
-  /* change own password */
-  $("pwBtn").onclick = function () { $("pCur").value = ""; $("pNew").value = ""; $("pErr").textContent = ""; open("pwOv"); };
-  $("pClose").onclick = function () { close("pwOv"); };
-  $("pSave").onclick = function () {
-    api("/password", { method: "PUT", body: { current_password: $("pCur").value, new_password: $("pNew").value } })
-      .then(function (d) { toast(d.message); close("pwOv"); }).catch(function (e) { $("pErr").textContent = e.message; });
+  function newCafeModal() {
+    var f = { name: h("input", { maxlength: 150 }), owner: h("input", { maxlength: 100 }), phone: h("input", { type: "tel", maxlength: 20 }), email: h("input", { type: "email" }), pass: h("input", { type: "text", placeholder: "Min 8 characters" }), end: h("input", { type: "date" }) };
+    f.plan = h("select", { onchange: syncEnd }, S.plans.filter(function (p) { return p.is_active; }).map(function (p) { return h("option", { value: p.code, text: p.name + (p.price > 0 ? " \u00B7 " + money(p.price) : ""), selected: p.code === "free" }); }));
+    function syncEnd() {
+      var p = S.plans.filter(function (x) { return x.code === f.plan.value; })[0];
+      if (p && p.duration_days > 0) { var d = new Date(); d.setDate(d.getDate() + p.duration_days); f.end.value = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); } else f.end.value = "";
+    }
+    syncEnd();
+    var err = h("div", { class: "err" });
+    modal("Create a cafe", "The owner can sign in with this email and password.", h("div", {},
+      field("Cafe / restaurant name", f.name), h("div", { class: "grid2" }, field("Owner name", f.owner), field("Mobile", f.phone)),
+      field("Owner email", f.email), field("Password", f.pass), h("div", { class: "grid2" }, field("Plan", f.plan), field("Valid till", f.end, "Empty = no expiry")), err), [
+      { text: "Cancel" },
+      { text: "Create cafe", kind: "", onClick: function (close, btn) {
+        err.textContent = "";
+        busy(btn, api("/tenants", { method: "POST", body: { cafe_name: f.name.value, owner_name: f.owner.value, phone: f.phone.value, email: f.email.value, password: f.pass.value, plan: f.plan.value, subscription_ends_at: f.end.value } }))
+          .then(function (r) { close(); toast(r.message); refreshView(); }).catch(function (e) { err.textContent = e.message; });
+      } }]);
+  }
+
+  /* ============ CAFE DRAWER ============ */
+  var closeDrawer = function () {};
+  function openCafe(id, tab) {
+    closeDrawer();
+    var body = h("div", { class: "db" }, skeleton(3)), head = h("div", { class: "dh" });
+    var drawer = h("div", { class: "drawer", role: "dialog", "aria-modal": "true" }, head, body);
+    var ov = h("div", { class: "ov", style: "padding:0;background:rgba(6,14,10,.45);justify-content:flex-end", onclick: function (e) { if (e.target === ov) closeDrawer(); } }, drawer);
+    var rm = layer(ov); closeDrawer = function () { rm(); closeDrawer = function () {}; };
+    S.tab = tab || "overview";
+    function load() {
+      api("/tenants/" + id).then(function (d) { render(d); }).catch(function (e) { head.textContent = ""; body.textContent = ""; body.appendChild(empty("Could not open", e.message, "alert")); });
+    }
+    function reload(t) { if (t) S.tab = t; load(); refreshView(); }
+    function render(d) {
+      var t = d.tenant, st = d.stats;
+      head.textContent = "";
+      head.appendChild(h("div", { class: "t" }, h("div", {}, h("h2", { text: t.name }), h("div", { class: "muted", style: "margin-top:2px", text: t.slug + " \u00B7 joined " + fdate(t.created_at) })), h("div", { style: "margin-left:8px;margin-top:4px" }, pill(t.state)),
+        h("button", { class: "x", "aria-label": "Close", onclick: function () { closeDrawer(); } }, icon("x"))));
+      var tabs = [["overview", "Overview"], ["subscription", "Subscription"], ["payments", "Payments (" + d.payments.length + ")"], ["staff", "Staff" + (st ? " (" + d.staff.length + ")" : "")], ["activity", "Activity"]];
+      head.appendChild(h("div", { class: "tabs" }, tabs.map(function (x) { return h("button", { class: "tab" + (S.tab === x[0] ? " on" : ""), text: x[1], onclick: function () { S.tab = x[0]; render(d); } }); })));
+      body.textContent = "";
+      if (!isOwner()) body.appendChild(h("div", { class: "box", style: "padding:10px 14px" }, h("span", { class: "muted", text: "You have view-only access." })));
+      else body.appendChild(quickActions(d, reload));
+      ({ overview: tOverview, subscription: tSubscription, payments: tPayments, staff: tStaff, activity: tActivity })[S.tab](body, d, reload);
+    }
+    load();
+  }
+
+  function quickActions(d, reload) {
+    var t = d.tenant, a = h("div", { class: "actions" });
+    function act(label, ic, fn, kind) { var b = h("button", { class: "btn sm " + (kind || "ghost") }, icon(ic), label); b.addEventListener("click", function () { busy(b, Promise.resolve(fn(b))).catch(function () {}); }); return b; }
+    var call = function (path, body) { return api("/tenants/" + t.id + path, { method: "POST", body: body }).then(function (r) { toast(r.message); reload(); }); };
+    if (t.state === "pending") {
+      a.appendChild(act("Approve", "check", function () { return call("/approve"); }, ""));
+      a.appendChild(act("Reject", "x", function () { return confirmBox("Reject this request?", "They will not be able to take another free trial.", "Reject", true).then(function (ok) { if (ok) return api("/tenants/" + t.id + "/reject", { method: "POST" }).then(function (r) { toast(r.message); closeDrawer(); refreshView(); }); }); }, "danger"));
+      return a;
+    }
+    if (t.status === "active") {
+      a.appendChild(act("Open cafe", "ext", function () {
+        return confirmBox("Open as the cafe's admin?", "You will be signed in as the cafe admin for 2 hours in a new tab. This is recorded in the activity log. It replaces any cafe sign-in you have open in this browser.", "Open cafe").then(function (ok) {
+          if (!ok) return;
+          return api("/tenants/" + t.id + "/impersonate", { method: "POST" }).then(function (r) { localStorage.setItem("bbToken", r.token); window.open("/", "_blank"); reload(); });
+        });
+      }, "soft"));
+      [30, 90, 365].forEach(function (n) { a.appendChild(act("+" + n + " days", "clock", function () { return call("/extend", { days: n }); })); });
+      a.appendChild(act("Suspend", "alert", function () { return confirmBox("Suspend " + t.name + "?", "Nobody from this cafe can sign in, and their customers cannot order, until you activate it again.", "Suspend", true).then(function (ok) { if (ok) return api("/tenants/" + t.id, { method: "PATCH", body: { status: "suspended" } }).then(function (r) { toast(r.message); reload(); }); }); }));
+    } else {
+      a.appendChild(act("Activate", "check", function () { return api("/tenants/" + t.id, { method: "PATCH", body: { status: "active" } }).then(function (r) { toast(r.message); reload(); }); }, ""));
+    }
+    return a;
+  }
+
+  function limitKpi(label, used, lim) {
+    var pct = lim ? Math.min(100, Math.round(used / lim * 100)) : 0;
+    return h("div", { class: "kpi" }, h("span", { text: label }), h("b", { text: nf(used) }), h("small", { text: lim === null || lim === undefined ? " / unlimited" : " / " + nf(lim) }),
+      lim ? h("div", { class: "bar" }, h("i", { class: pct >= 100 ? "full" : "", style: "width:" + pct + "%" })) : null);
+  }
+  function tOverview(body, d, reload) {
+    var t = d.tenant, st = d.stats, lim = d.limits || {};
+    if (st) {
+      body.appendChild(h("div", { class: "kpis" },
+        h("div", { class: "kpi" }, h("span", { text: "Sales today" }), h("b", { text: money(st.sales_today) })),
+        h("div", { class: "kpi" }, h("span", { text: "Sales, 30 days" }), h("b", { text: money(st.sales_30d) })),
+        h("div", { class: "kpi" }, h("span", { text: "Orders today" }), h("b", { text: nf(st.orders_today) })),
+        limitKpi("Staff", Math.max(st.staff - 1, 0), lim.staff), limitKpi("Tables", st.tables, lim.tables), limitKpi("Menu items", st.items, lim.items)));
+    } else body.appendChild(h("div", { class: "box" }, h("span", { class: "muted", text: "This cafe has no data yet. It is created when you approve the request." })));
+    body.appendChild(h("div", { class: "box" }, h("h4", { text: "Details" }), h("dl", { class: "meta" },
+      h("dt", { text: "Owner" }), h("dd", { text: t.owner_name }), h("dt", { text: "Email" }), h("dd", { text: t.owner_email }), h("dt", { text: "Mobile" }), h("dd", { text: t.owner_phone || "\u2014" }),
+      h("dt", { text: "GST" }), h("dd", { text: t.gst_no || "\u2014" }), h("dt", { text: "Plan" }), h("dd", { text: t.plan_name }),
+      h("dt", { text: "Valid till" }), h("dd", { text: t.subscription_ends_at ? fdate(t.subscription_ends_at) : "No expiry" }), h("dt", { text: "Last bill" }), h("dd", { text: st && st.last_order_at ? fdt(st.last_order_at) : "\u2014" }),
+      h("dt", { text: "Total sales" }), h("dd", { text: st ? money(st.sales_total) + " \u00B7 " + nf(st.orders_30d) + " orders in 30 days" : "\u2014" }))));
+    var notes = h("textarea", { rows: 3, maxlength: 500, placeholder: "Private notes about this cafe (only you see this)", disabled: !isOwner() }); notes.value = t.notes || "";
+    var box = h("div", { class: "box" }, h("h4", { text: "Private notes" }), notes);
+    if (isOwner()) box.appendChild(h("button", { class: "btn sm", style: "margin-top:10px", text: "Save note", onclick: function (e) {
+      busy(e.currentTarget, api("/tenants/" + t.id, { method: "PATCH", body: { notes: notes.value } })).then(function () { toast("Note saved."); }).catch(function () {}); } }));
+    body.appendChild(box);
+  }
+
+  function tSubscription(body, d, reload) {
+    var t = d.tenant, ro = !isOwner();
+    var plan = h("select", { disabled: ro }, S.plans.map(function (p) { return h("option", { value: p.code, text: p.name, selected: p.code === t.plan }); }));
+    var end = h("input", { type: "date", value: t.subscription_ends_at || "", disabled: ro });
+    var status = h("select", { disabled: ro || t.state === "pending" }, h("option", { value: "active", text: "Active", selected: t.status === "active" }), h("option", { value: "suspended", text: "Suspended", selected: t.status !== "active" }));
+    var name = h("input", { value: t.name, maxlength: 150, disabled: ro });
+    var main = h("div", { class: "box" }, h("h4", { text: "Plan and validity" }), h("div", { class: "grid2" }, field("Plan", plan), field("Valid till", end, "Empty = no expiry")), h("div", { class: "grid2" }, field("Status", status), field("Cafe name", name)));
+    if (!ro) main.appendChild(h("button", { class: "btn sm", text: "Save changes", onclick: function (e) {
+      var b = { plan: plan.value, subscription_ends_at: end.value || "", name: name.value }; if (t.state !== "pending") b.status = status.value;
+      busy(e.currentTarget, api("/tenants/" + t.id, { method: "PATCH", body: b })).then(function (r) { toast(r.message); reload(); }).catch(function () {}); } }));
+    body.appendChild(main);
+    if (ro) return;
+
+    // record a payment
+    var amt = h("input", { type: "number", min: 0, step: "1", placeholder: "0" }), paid = h("input", { type: "date", value: new Date().toISOString().slice(0, 10) });
+    var meth = h("select", {}, ["cash", "upi", "bank", "card", "other"].map(function (m) { return h("option", { value: m, text: m.toUpperCase() }); }));
+    var ref = h("input", { maxlength: 100, placeholder: "UPI ref / cheque no." }), note = h("input", { maxlength: 255 });
+    var pplan = h("select", {}, h("option", { value: "", text: "Do not change plan" }), S.plans.map(function (p) { return h("option", { value: p.code, text: p.name }); }));
+    var days = h("input", { type: "number", min: 0, placeholder: "e.g. 30" });
+    pplan.addEventListener("change", function () { var p = S.plans.filter(function (x) { return x.code === pplan.value; })[0]; if (p) { days.value = p.duration_days > 0 ? p.duration_days : ""; if (p.price > 0 && !amt.value) amt.value = p.price; } });
+    body.appendChild(h("div", { class: "box" }, h("h4", { text: "Record a payment" }), h("div", { class: "hint", style: "margin:-4px 0 12px", text: "Note a cash / UPI / bank payment you received. You can also set the plan and add days in the same step." }),
+      h("div", { class: "grid3" }, field("Amount (\u20B9)", amt), field("Date", paid), field("Method", meth)),
+      h("div", { class: "grid2" }, field("Reference", ref), field("Note", note)), h("div", { class: "grid2" }, field("Apply plan", pplan), field("Add days", days)),
+      h("button", { class: "btn sm", text: "Save payment", onclick: function (e) {
+        busy(e.currentTarget, api("/tenants/" + t.id + "/payments", { method: "POST", body: { amount: amt.value || 0, paid_on: paid.value, method: meth.value, reference: ref.value, note: note.value, plan: pplan.value, days: days.value || 0 } }))
+          .then(function (r) { toast(r.message); reload("payments"); }).catch(function () {}); } })));
+
+    // account tools
+    if (t.state !== "pending") body.appendChild(h("div", { class: "box" }, h("h4", { text: "Account tools" }), h("div", { class: "actions", style: "margin:0" },
+      h("button", { class: "btn sm ghost", onclick: function () {
+        var pw = h("input", { type: "text", placeholder: "New password (min 8 characters)" });
+        modal("Reset owner password", t.owner_email, field("New password", pw), [{ text: "Cancel" }, { text: "Reset password", onClick: function (close, b) {
+          busy(b, api("/tenants/" + t.id + "/reset-password", { method: "POST", body: { password: pw.value } })).then(function (r) { close(); toast(r.message); }).catch(function () {}); } }]);
+      } }, icon("key"), "Reset owner password"),
+      h("button", { class: "btn sm ghost", onclick: function (e) { busy(e.currentTarget, download("/tenants/" + t.id + "/export", t.slug + "-data.json")).catch(function () {}); } }, icon("down"), "Download cafe data"))));
+
+    // danger
+    var conf = h("input", { placeholder: "Type " + t.slug });
+    body.appendChild(h("div", { class: "box danger" }, h("h4", { text: "Delete cafe" }), h("div", { class: "hint", style: "margin:-4px 0 10px", text: "Permanently deletes this cafe and all its data. This cannot be undone. Its email and mobile can never get another free trial." }),
+      h("div", { style: "display:flex;gap:10px" }, conf, h("button", { class: "btn danger", style: "flex:none", text: "Delete forever", onclick: function (e) {
+        busy(e.currentTarget, api("/tenants/" + t.id + "?confirm=" + encodeURIComponent(conf.value.trim()), { method: "DELETE" })).then(function (r) { toast(r.message); closeDrawer(); refreshView(); }).catch(function () {}); } }))));
+  }
+
+  function tPayments(body, d) {
+    if (!d.payments.length) return body.appendChild(h("div", { class: "box" }, empty("No payments yet", "Payments you record for this cafe appear here.", "wallet")));
+    body.appendChild(h("div", { class: "box" }, h("div", { class: "list" }, d.payments.map(function (p) {
+      return h("div", { class: "li" }, h("div", { class: "dot" }, icon("rupee")), h("div", { class: "grow" }, h("b", { text: money(p.amount) + " \u00B7 " + p.method.toUpperCase() }),
+        h("small", { text: fdate(p.paid_on) + (p.plan ? " \u00B7 plan " + p.plan : "") + (p.days_added ? " \u00B7 +" + p.days_added + " days" : "") + (p.reference ? " \u00B7 " + p.reference : "") + (p.note ? " \u00B7 " + p.note : "") })), h("small", { text: p.created_by || "" }));
+    }))));
+  }
+  function tStaff(body, d) {
+    if (!d.staff.length) return body.appendChild(h("div", { class: "box" }, empty("No staff yet", "", "users")));
+    body.appendChild(h("div", { class: "box" }, h("div", { class: "list" }, d.staff.map(function (u) {
+      return h("div", { class: "li" }, h("div", { class: "avatar", style: "background:var(--brand-soft);color:var(--brand)", text: (u.name || "?").charAt(0).toUpperCase() }), h("div", { class: "grow" }, h("b", { text: u.name }), h("small", { text: u.email + " \u00B7 " + u.role + (u.is_active ? "" : " \u00B7 disabled") })), h("small", { text: u.last_login ? "Last seen " + ago(u.last_login) : "Never signed in" }));
+    }))));
+  }
+  function tActivity(body, d) {
+    if (!d.activity.length) return body.appendChild(h("div", { class: "box" }, empty("No activity yet", "", "pulse")));
+    body.appendChild(h("div", { class: "box" }, h("div", { class: "list" }, d.activity.map(actRow))));
+  }
+
+  /* ============ PLANS ============ */
+  VIEWS.plans = function (c) {
+    setHead("Plans", "What each plan costs and allows. You decide the rules.", [isOwner() ? h("button", { class: "btn", onclick: function () { planModal(null); } }, icon("plus"), "New plan") : null]);
+    api("/plans").then(function (d) {
+      S.plans = d.plans; c.textContent = "";
+      var lim = function (v, w) { return v === null || v === undefined ? "Unlimited " + w : "Up to " + nf(v) + " " + w; };
+      c.appendChild(h("div", { class: "plans" }, d.plans.map(function (p) {
+        return h("div", { class: "card plan" + (p.is_active ? "" : " off") },
+          h("div", { class: "tag" }, p.is_trial ? h("span", { class: "pill trial", text: "Trial" }) : (!p.is_active ? h("span", { class: "pill plain", text: "Hidden" }) : null)),
+          h("div", {}, h("h3", { text: p.name }), h("div", { class: "muted", text: p.code })),
+          h("div", { class: "price" }, p.price > 0 ? money(p.price) : "Free", h("small", { text: p.duration_days > 0 ? " / " + p.duration_days + " days" : " \u00B7 no expiry" })),
+          h("ul", {}, [lim(p.max_staff, "staff"), lim(p.max_tables, "tables"), lim(p.max_items, "menu items")].map(function (x) { return h("li", {}, icon("check"), x); })),
+          h("div", { style: "display:flex;align-items:center;justify-content:space-between;margin-top:auto" }, h("small", { class: "muted", text: p.cafes + " cafe" + (p.cafes === 1 ? "" : "s") }),
+            isOwner() ? h("button", { class: "btn sm ghost", text: "Edit", onclick: function () { planModal(p); } }) : null));
+      })));
+    }).catch(function (e) { loadError(c, e); });
+  };
+  function planModal(p) {
+    var f = { code: h("input", { maxlength: 40, placeholder: "e.g. gold", disabled: !!p, value: p ? p.code : "" }), name: h("input", { maxlength: 80, value: p ? p.name : "" }), price: h("input", { type: "number", min: 0, value: p ? p.price : 0 }),
+      days: h("input", { type: "number", min: 0, value: p ? p.duration_days : 30 }), staff: h("input", { type: "number", min: 0, placeholder: "Unlimited", value: p && p.max_staff !== null ? p.max_staff : "" }),
+      tables: h("input", { type: "number", min: 0, placeholder: "Unlimited", value: p && p.max_tables !== null ? p.max_tables : "" }), items: h("input", { type: "number", min: 0, placeholder: "Unlimited", value: p && p.max_items !== null ? p.max_items : "" }) };
+    var on = h("input", { type: "checkbox", checked: p ? !!p.is_active : true });
+    var err = h("div", { class: "err" });
+    var btns = [{ text: "Cancel" }];
+    if (p && ["trial", "free"].indexOf(p.code) === -1) btns.unshift({ text: "Delete", kind: "danger", onClick: function (close, b) {
+      confirmBox("Delete plan " + p.name + "?", "Only plans with no cafes can be deleted.", "Delete", true).then(function (ok) { if (ok) busy(b, api("/plans/" + p.id, { method: "DELETE" })).then(function (r) { close(); toast(r.message); refreshView(); }).catch(function () {}); }); } });
+    btns.push({ text: p ? "Save plan" : "Create plan", onClick: function (close, b) {
+      err.textContent = "";
+      var body = { code: f.code.value, name: f.name.value, price: f.price.value, duration_days: f.days.value, max_staff: f.staff.value, max_tables: f.tables.value, max_items: f.items.value, is_active: on.checked };
+      busy(b, api(p ? "/plans/" + p.id : "/plans", { method: p ? "PUT" : "POST", body: body })).then(function (r) { close(); toast(r.message); refreshView(); }).catch(function (e) { err.textContent = e.message; });
+    } });
+    modal(p ? "Edit plan" : "New plan", "Leave a limit empty for unlimited. Days = 0 means no expiry.", h("div", {},
+      h("div", { class: "grid2" }, field("Code", f.code, p ? "Cannot be changed" : "Letters, numbers, - or _"), field("Name", f.name)),
+      h("div", { class: "grid2" }, field("Price (\u20B9)", f.price), field("Duration (days)", f.days)),
+      h("div", { class: "grid3" }, field("Max staff", f.staff), field("Max tables", f.tables), field("Max menu items", f.items)),
+      h("label", { style: "display:flex;gap:10px;align-items:center;cursor:pointer" }, on, "Available to choose"), err), btns);
+  }
+
+  /* ============ PAYMENTS ============ */
+  VIEWS.payments = function (c) {
+    setHead("Payments", "Payments you have recorded.", [h("button", { class: "btn ghost", onclick: function () { download("/payments.csv", "payments.csv").catch(function (e) { toast(e.message, true); }); } }, icon("down"), "Export CSV")]);
+    var from = h("input", { type: "date", style: "width:auto" }), to = h("input", { type: "date", style: "width:auto" }), q = h("input", { placeholder: "Search cafe or reference" });
+    var out = h("div");
+    c.textContent = "";
+    c.appendChild(h("div", { class: "toolbar" }, h("div", { class: "search" }, icon("search"), q), h("span", { class: "muted", text: "From" }), from, h("span", { class: "muted", text: "To" }), to));
+    c.appendChild(out);
+    var timer;
+    function load() {
+      api("/payments" + qs({ from: from.value, to: to.value, q: q.value.trim() })).then(function (d) {
+        out.textContent = "";
+        out.appendChild(h("div", { class: "cards", style: "grid-template-columns:repeat(auto-fit,minmax(200px,260px))" }, stat("Total received", money(d.summary.total), "wallet"), stat("Payments", nf(d.summary.count), "rupee", "blue")));
+        if (!d.payments.length) return out.appendChild(h("div", { class: "card" }, empty("No payments found", "Record a payment from a cafe's Subscription tab.", "wallet")));
+        out.appendChild(h("div", { class: "card tablewrap" }, h("table", {}, h("thead", {}, h("tr", {}, ["Date", "Cafe", "Amount", "Method", "Reference", "Plan", "Days", "By"].map(function (x, i) { return h("th", { text: x, class: i === 2 ? "right" : "" }); }))),
+          h("tbody", {}, d.payments.map(function (p) {
+            return h("tr", { class: "click", onclick: function () { openCafe(p.tenant_id, "payments"); } }, h("td", { text: fdate(p.paid_on) }), h("td", {}, h("div", { class: "name", text: p.tenant_name }), p.note ? h("div", { class: "small", text: p.note }) : null),
+              h("td", { class: "right name", text: money(p.amount) }), h("td", {}, h("span", { class: "pill plain", text: p.method.toUpperCase() })), h("td", { text: p.reference || "\u2014" }), h("td", { text: p.plan || "\u2014" }), h("td", { text: p.days_added ? "+" + p.days_added : "\u2014" }), h("td", { class: "small", text: p.created_by || "" }));
+          })))));
+      }).catch(function (e) { loadError(out, e); });
+    }
+    [from, to].forEach(function (x) { x.addEventListener("change", load); });
+    q.addEventListener("input", function () { clearTimeout(timer); timer = setTimeout(load, 300); });
+    load();
   };
 
-  if (token) api("/me").then(function (d) { $("whoami").textContent = d.admin.email; }).catch(function () {});
-  show();
+  /* ============ ACTIVITY ============ */
+  VIEWS.activity = function (c) {
+    setHead("Activity", "Everything done in the owner panel.", []);
+    var sel = h("select", { style: "width:auto" }, h("option", { value: "", text: "All actions" }), Object.keys(ACT).map(function (k) { return h("option", { value: k, text: ACT[k][0] }); }));
+    var out = h("div", { class: "card pad" });
+    c.textContent = ""; c.appendChild(h("div", { class: "toolbar" }, sel)); c.appendChild(out);
+    function load() {
+      api("/activity" + qs({ action: sel.value })).then(function (d) {
+        out.textContent = ""; out.appendChild(h("div", { class: "list" }, d.activity.length ? d.activity.map(actRow) : empty("No activity", "", "pulse")));
+      }).catch(function (e) { loadError(out, e); });
+    }
+    sel.addEventListener("change", load); load();
+  };
+
+  /* ============ TEAM ============ */
+  VIEWS.team = function (c) {
+    setHead("Team", "Who can sign in to this panel.", [h("button", { class: "btn", onclick: function () { teamModal(); } }, icon("plus"), "Add team member")]);
+    api("/admins").then(function (d) {
+      c.textContent = "";
+      c.appendChild(h("div", { class: "hint", style: "margin-bottom:12px", text: "Owners can change everything. Support members can look at every page but cannot change anything." }));
+      c.appendChild(h("div", { class: "card tablewrap" }, h("table", {}, h("thead", {}, h("tr", {}, ["Name", "Email", "Role", "Status", ""].map(function (x) { return h("th", { text: x }); }))),
+        h("tbody", {}, d.admins.map(function (a) {
+          var me = a.id === S.admin.id;
+          var role = h("select", { style: "width:auto", disabled: me, onchange: function (e) { api("/admins/" + a.id, { method: "PATCH", body: { role: e.target.value } }).then(function () { toast("Role updated."); }).catch(function (er) { toast(er.message, true); refreshView(); }); } },
+            h("option", { value: "owner", text: "Owner", selected: a.role === "owner" }), h("option", { value: "support", text: "Support", selected: a.role !== "owner" }));
+          return h("tr", {}, h("td", {}, h("div", { class: "name", text: a.name + (me ? " (you)" : "") })), h("td", { text: a.email }), h("td", {}, role),
+            h("td", {}, h("label", { class: "tgl" }, h("input", { type: "checkbox", checked: !!a.is_active, disabled: me, onchange: function (e) { api("/admins/" + a.id, { method: "PATCH", body: { is_active: e.target.checked } }).then(function () { toast(e.target.checked ? "Activated." : "Deactivated."); }).catch(function (er) { toast(er.message, true); refreshView(); }); } }), h("i"))),
+            h("td", { class: "right" }, h("button", { class: "btn sm ghost", text: "Reset password", onclick: function () {
+              var pw = h("input", { type: "text", placeholder: "Min 8 characters" });
+              modal("Reset password", a.email, field("New password", pw), [{ text: "Cancel" }, { text: "Reset", onClick: function (close, b) { busy(b, api("/admins/" + a.id, { method: "PATCH", body: { password: pw.value } })).then(function () { close(); toast("Password reset."); }).catch(function () {}); } }]);
+            } })));
+        })))));
+    }).catch(function (e) { loadError(c, e); });
+  };
+  function teamModal() {
+    var name = h("input", { maxlength: 100 }), email = h("input", { type: "email" }), pw = h("input", { type: "text", placeholder: "Min 8 characters" });
+    var role = h("select", {}, h("option", { value: "support", text: "Support (view only)" }), h("option", { value: "owner", text: "Owner (full access)" }));
+    var err = h("div", { class: "err" });
+    modal("Add team member", "They sign in at this same page.", h("div", {}, field("Name", name), field("Email", email), field("Password", pw), field("Role", role), err), [{ text: "Cancel" }, { text: "Add member", onClick: function (close, b) {
+      busy(b, api("/admins", { method: "POST", body: { name: name.value, email: email.value, password: pw.value, role: role.value } })).then(function (r) { close(); toast(r.message); refreshView(); }).catch(function (e) { err.textContent = e.message; });
+    } }]);
+  }
+
+  /* ============ SETTINGS ============ */
+  function switchRow(title, text, input) { return h("div", { class: "switch" }, h("div", {}, h("b", { text: title }), h("span", { class: "muted", text: text })), h("label", { class: "tgl" }, input, h("i"))); }
+  VIEWS.settings = function (c) {
+    setHead("Settings", "Sign-up rules and subscription behaviour.", []);
+    api("/settings").then(function (d) {
+      var s = d.settings, open = h("input", { type: "checkbox", checked: !!s.signup_open }), appr = h("input", { type: "checkbox", checked: !!s.approval_required });
+      var trial = h("input", { type: "number", min: 1, max: 365, value: s.trial_days }), grace = h("input", { type: "number", min: 0, max: 60, value: s.grace_days });
+      var link = location.origin + "/signup";
+      c.textContent = "";
+      c.appendChild(h("div", { class: "dgrid2" },
+        h("div", { class: "card pad" }, h("h3", { text: "Sign-up" }), h("div", { class: "sub", text: "How new cafes join" }),
+          switchRow("Allow public sign-up", "Anyone can create a cafe from the sign-up page.", open),
+          switchRow("Approve new cafes first", "A cafe waits until you approve it. Nothing is created before that.", appr),
+          h("div", { class: "grid2", style: "margin-top:14px" }, field("Free trial length (days)", trial, "Starts when the cafe is approved"), field("Grace days after expiry", grace, "Full access continues for these days; after that the cafe becomes view-only")),
+          h("button", { class: "btn", text: "Save settings", onclick: function (e) {
+            busy(e.currentTarget, api("/settings", { method: "PUT", body: { signup_open: open.checked, approval_required: appr.checked, trial_days: trial.value, grace_days: grace.value } })).then(function (r) { toast(r.message); }).catch(function () {}); } })),
+        h("div", {},
+          h("div", { class: "card pad", style: "margin-bottom:14px" }, h("h3", { text: "Sign-up link" }), h("div", { class: "sub", text: "Share this with cafe owners" }),
+            h("div", { style: "display:flex;gap:8px" }, h("input", { value: link, readonly: true }), h("button", { class: "btn ghost", style: "flex:none", text: "Copy", onclick: function () { (navigator.clipboard ? navigator.clipboard.writeText(link) : Promise.reject()).then(function () { toast("Link copied."); }).catch(function () { toast("Copy it from the box.", true); }); } }))),
+          h("div", { class: "card pad" }, h("h3", { text: "Free trial protection" }), h("div", { class: "sub", text: "Always on" }),
+            h("ul", { class: "muted", style: "margin:0;padding-left:18px;line-height:1.9" }, h("li", { text: "One trial per email (Gmail dots and +tags are ignored)" }), h("li", { text: "One trial per mobile number" }), h("li", { text: "One trial per GST number, when given" }), h("li", { text: "Deleting a cafe does not give the email another trial" }), h("li", { text: "Trial plan limits staff, tables and menu items" }))))));
+
+      var cur = h("input", { type: "password", autocomplete: "current-password" }), nw = h("input", { type: "password", autocomplete: "new-password" });
+      c.appendChild(h("div", { class: "card pad", style: "max-width:520px" }, h("h3", { text: "Change my password" }), h("div", { class: "sub", text: S.admin.email }), field("Current password", cur), field("New password", nw, "At least 8 characters"),
+        h("button", { class: "btn", text: "Change password", onclick: function (e) {
+          busy(e.currentTarget, api("/password", { method: "PUT", body: { current_password: cur.value, new_password: nw.value } })).then(function (r) { toast(r.message); cur.value = ""; nw.value = ""; }).catch(function () {}); } })));
+    }).catch(function (e) { loadError(c, e); });
+  };
+
+  boot();
 })();
 </script>
 </body>

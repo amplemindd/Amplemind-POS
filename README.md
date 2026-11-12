@@ -7,23 +7,31 @@ Their data is completely separate.
 ## The three kinds of users
 | Who | Where they sign in | What they see |
 |---|---|---|
-| **Website owner (you)** | `/platform` | all cafes, status, plan, subscription date, create/suspend/delete |
+| **Website owner (you)** | `/platform` | all cafes, plans, payments, activity, settings |
+| **Support team** (optional) | `/platform` | the same pages, view only |
 | **Cafe owner (admin)** | `/signup` once, then `/` | only their own cafe |
 | **Staff** (waiter, manager, cashier) | `/` (waiters: waiter app, mobile number) | only the cafe they belong to |
 
 Customers scan a table QR code and only that cafe's menu opens.
 
+## Owner panel (`/platform`)
+Dashboard (cafes, sales across cafes, sign-up and revenue charts), cafe list with filters and CSV export,
+cafe drawer (sales, staff, limits, notes, extend +30/+90/+365 days, suspend, "open as cafe admin", reset password,
+download data, delete), plans, payments you record by hand, activity log, team accounts, and settings.
+
+## Free trial and subscription rules
+- New sign-ups get the **Free Trial** plan (14 days, starts when you approve). Trial limits: 3 staff, 12 tables, 40 menu items.
+- One trial per email (Gmail dots and +tags are ignored), per mobile number and per GST number. Deleting a cafe does not give the email another trial.
+- With **Approve new cafes first** on, a cafe waits in "Pending" and nothing is created until you approve it.
+- After `subscription_ends_at` the cafe has a few **grace days**, then becomes **view only** (can sign in and read, cannot change or take orders) until you extend it.
+- Plans (price, days, limits) are yours to edit. The seeded Basic / Standard / Premium prices are only placeholders.
+
 ## How the data is separated
 Each cafe gets its own tables inside the same database (`t1_bb_orders`, `t2_bb_orders`, ...).
 Code uses normal table names and `backend-node/lib/tenantSql.js` maps them to the current cafe.
 A query that runs without a selected cafe is refused, so one cafe can never read another cafe's data.
-Shared tables: `platform_tenants` (cafes), `platform_admins` (website owners),
-`platform_logins` (email / waiter mobile -> cafe), `bb_files` (uploaded images).
-
-## Subscriptions (add your own rules later)
-`platform_tenants` already has `status` (active / suspended), `plan` and `subscription_ends_at`.
-Access is blocked automatically after `subscription_ends_at`. Leave the date empty for no expiry.
-Change them from `/platform`, or plug your payment system into `PATCH /api/platform/tenants/:id`.
+Shared tables: `platform_tenants`, `platform_plans`, `platform_payments`, `platform_activity`, `platform_settings`,
+`platform_trials`, `platform_admins`, `platform_logins` (email / waiter mobile -> cafe) and `bb_files` (uploaded images).
 
 ## Local run
 1. `npm install`

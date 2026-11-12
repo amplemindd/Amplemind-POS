@@ -1,7 +1,7 @@
 "use strict";
 const bcrypt = require("bcryptjs");
 const { api, q, one, fail, audit, signToken, PERMISSIONS, str, bool, getSettings, maskSettings, saveUpload, removeUpload, isYmd, currentTenantId } = require("../lib/core");
-const { ensureTenant, runRaw, accessError, getTenant, findLogin, assertLoginFree, reindexUser, removeUserLogins } = require("../lib/tenants");
+const { ensureTenant, runRaw, accessError, accessInfo, getTenant, findLogin, assertLoginFree, reindexUser, removeUserLogins, assertLimit, normEmail, SUPPORT } = require("../lib/tenants");
 
 const attempts = new Map(); // simple brute-force protection: 6 failures / 15 min per email+ip
 function tooMany(key) { const a = attempts.get(key); return a && a.n >= 6 && Date.now() - a.t < 15 * 60 * 1000; }
@@ -16,6 +16,10 @@ api.post("/api/auth/login", null, async (ctx) => {
   // Which cafe does this email belong to?
   const login = await findLogin("e:" + email);
   if (!login) {
+    const pend = await one("SELECT pending_password_hash h FROM platform_tenants WHERE owner_email_key = ? AND status = 'pending' LIMIT 1", [normEmail(email)]);
+    if (pend && pend.h && (await bcrypt.compare(password, pend.h))) {
+      throw fail(403, "Your cafe is waiting for approval. We will contact you soon." + SUPPORT());
+    }
     failed(key);
     throw fail(401, "Invalid email or password.");
   }
@@ -46,10 +50,15 @@ api.post("/api/auth/logout", "auth", async (ctx) => {
 
 api.get("/api/auth/me", "auth", async (ctx) => {
   const t = await getTenant(currentTenantId());
+  const info = t ? await accessInfo(t) : {};
   return {
     user: { ...ctx.user, permissions: ctx.user.perms },
     settings: maskSettings(await getSettings()),
-    tenant: t ? { id: t.id, slug: t.slug, name: t.name, plan: t.plan, subscription_ends_at: t.subscription_ends_at } : null,
+    tenant: t ? {
+      id: t.id, slug: t.slug, name: t.name, plan: t.plan,
+      subscription_ends_at: t.subscription_ends_at ? String(t.subscription_ends_at).slice(0, 10) : null,
+      read_only: !!info.readOnly, in_grace: !!info.grace, notice: info.message || "",
+    } : null,
   };
 });
 
@@ -93,6 +102,7 @@ async function roleExists(role) { if (!(await one("SELECT name FROM bb_roles WHE
 api.post("/api/users", "staff", async (ctx) => {
   const b = ctx.body, v = validUser(b, true), extra = staffExtra(b);
   const role = str(b.role, 50) || "cashier"; await roleExists(role);
+  if (role !== "admin") await assertLimit("staff");
   if (role === "waiter") await waiterCheck(v, 0);
   if (await one("SELECT id FROM bb_users WHERE email = ?", [v.email])) throw fail(409, "A user with this email already exists.");
   await assertLoginFree(currentTenantId(), 0, { email: v.email, phone: v.phone, role });

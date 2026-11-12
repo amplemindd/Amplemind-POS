@@ -1,5 +1,6 @@
 "use strict";
 const { newQrToken } = require("../lib/tenantSql");
+const { assertLimit } = require("../lib/tenants");
 const crypto = require("crypto");
 const { api, q, one, tx, cq, fail, audit, notify, paging, like, str, bool, num, getSettings, pool } = require("../lib/core");
 
@@ -43,6 +44,7 @@ function body(b) {
 }
 
 api.post("/api/tables", "tables.manage", async (ctx) => {
+  await assertLimit("tables");
   const S = await getSettings();
   let { name, capacity } = body({ ...ctx.body, name: ctx.body.name || "auto" });
   if (!ctx.body.name || ctx.body.name === "auto") {

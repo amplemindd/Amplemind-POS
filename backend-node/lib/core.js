@@ -6,7 +6,7 @@ const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 const pool = require("../config/db");
 const DEFAULTS = require("./defaults");
-const { currentTenantId, tidFromQrToken } = require("./tenantSql");
+const { currentTenantId, currentStore, tidFromQrToken } = require("./tenantSql");
 const { runInTenant, getTenantBySlug } = require("./tenants");
 
 const UPLOAD_DIR = path.join(__dirname, "..", "uploads");
@@ -139,12 +139,12 @@ async function publicUser() {
   return null;
 }
 
-const signToken = (user) =>
+const signToken = (user, extra = {}, expiresIn = "10h") =>
   jwt.sign(
-    { uid: user.id, role: user.role, tid: currentTenantId() },
+    { uid: user.id, role: user.role, tid: currentTenantId(), ...extra },
     process.env.JWT_SECRET,
     {
-      expiresIn: "10h",
+      expiresIn,
       issuer: "chai-order-api"
     }
   );
@@ -163,7 +163,7 @@ async function authenticatePlatform(req) {
   }
 
   const a = await one(
-    "SELECT id, name, email, is_active FROM platform_admins WHERE id = ?",
+    "SELECT id, name, email, role, is_active FROM platform_admins WHERE id = ?",
     [p.pid]
   );
 
@@ -374,6 +374,8 @@ const num = (v, d = 0) => {
 
 /* ---------- ROUTER ---------- */
 
+const READONLY_OK = new Set(["/api/auth/login", "/api/auth/logout", "/api/waiter/login"]);
+
 const routes = [];
 
 function add(method, pattern, perm, handler) {
@@ -483,14 +485,27 @@ async function dispatch(req, res, url) {
         (/api/public/qr/:token) or the cafe slug (/api/.../:slug/...).
         Login routes pick the cafe themselves.
     */
+    const isPlatform = typeof r.perm === "string" && r.perm.startsWith("platform");
+
     const exec = async () => {
-      if (r.perm === "platform") {
+      if (isPlatform) {
         ctx.admin = await authenticatePlatform(req);
 
         if (!ctx.admin) {
-          throw fail(401, "Please sign in as the website owner.");
+          throw fail(401, "Please sign in to the owner panel.");
+        }
+
+        if (r.perm === "platform.write" && ctx.admin.role !== "owner") {
+          throw fail(403, "Only the owner can do this.");
         }
       } else if (r.perm) {
+        // Subscription ended: the cafe can look but not change anything.
+        const st = currentStore();
+
+        if (st && st.readOnly && req.method !== "GET" && !READONLY_OK.has(url.pathname)) {
+          throw fail(403, st.readOnlyMessage || "Your subscription has ended.");
+        }
+
         ctx.user = process.env.JWT_SECRET ? await authenticate(req) : null;
 
         if (!ctx.user) {
@@ -499,6 +514,14 @@ async function dispatch(req, res, url) {
 
         if (r.perm !== "auth" && !can(ctx.user, r.perm)) {
           throw fail(403, "You do not have permission to do this.");
+        }
+      }
+
+      if (!r.perm) {
+        const st = currentStore();
+
+        if (st && st.readOnly && req.method !== "GET" && !READONLY_OK.has(url.pathname)) {
+          throw fail(403, "This cafe is not taking orders right now.");
         }
       }
 
@@ -520,7 +543,7 @@ async function dispatch(req, res, url) {
 
     let tid = null;
 
-    if (r.perm && r.perm !== "platform") {
+    if (r.perm && !isPlatform) {
       const c = readClaims(req);
       tid = c && c.tid ? Number(c.tid) : null;
     } else if (!r.perm && params.token) {

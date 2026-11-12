@@ -1,6 +1,7 @@
 "use strict";
 // Categories, Menu items (products) and Taxes / GST
 const { api, q, one, tx, cq, fail, audit, notify, saveUpload, removeUpload, paging, like, str, bool, num, r2, dateRange, getSettings, clearSettingsCache, pool } = require("../lib/core");
+const { assertLimit } = require("../lib/tenants");
 
 /* ================= CATEGORIES ================= */
 const CAT_SELECT = `SELECT c.id, c.name, c.icon, c.description, c.display_order, c.show_in_pos, c.is_active, c.image_url, c.tax_rate_id, c.created_at,
@@ -121,6 +122,7 @@ async function prodBody(b, id) {
 }
 
 api.post("/api/products", "menu.manage", async (ctx) => {
+  await assertLimit("items");
   const v = await prodBody(ctx.body);
   const image = ctx.body.image_data ? saveUpload(ctx.body.image_data) : ""; // image is optional
   const r = (await pool.query(
@@ -159,6 +161,7 @@ api.patch("/api/products/:id/status", "menu.manage", async (ctx) => {
 });
 
 api.post("/api/products/:id/duplicate", "menu.manage", async (ctx) => {
+  await assertLimit("items");
   const p = await one("SELECT * FROM products WHERE id = ? AND is_archived = 0", [Number(ctx.params.id)]);
   if (!p) throw fail(404, "Menu item not found.");
   const r = (await pool.query(

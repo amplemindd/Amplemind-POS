@@ -451,7 +451,7 @@ async function provisionTenant(tid, opts = {}) {
     if (!tcount) {
       await q(
         "INSERT INTO bb_tables (name, capacity, sort_order, status_since) VALUES ?",
-        [Array.from({ length: 24 }, (_, i) => [
+        [Array.from({ length: Math.max(1, Number(opts.tables) || 24) }, (_, i) => [
           `T${i + 1}`,
           4,
           i + 1,
@@ -528,10 +528,103 @@ const PLATFORM_DDL = [
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
 ];
 
+const PLATFORM_DDL_2 = [
+  // Subscription plans (limits: empty = unlimited, duration 0 = no expiry)
+  `CREATE TABLE IF NOT EXISTS platform_plans (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    code VARCHAR(40) NOT NULL UNIQUE,
+    name VARCHAR(80) NOT NULL,
+    price DECIMAL(10,2) NOT NULL DEFAULT 0,
+    duration_days INT NOT NULL DEFAULT 30,
+    max_staff INT NULL,
+    max_tables INT NULL,
+    max_items INT NULL,
+    is_trial TINYINT NOT NULL DEFAULT 0,
+    is_active TINYINT NOT NULL DEFAULT 1,
+    sort_order INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+  // Payments you record by hand (cash / UPI / bank)
+  `CREATE TABLE IF NOT EXISTS platform_payments (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    tenant_id INT NOT NULL,
+    tenant_name VARCHAR(150) NOT NULL,
+    amount DECIMAL(10,2) NOT NULL DEFAULT 0,
+    paid_on DATE NOT NULL,
+    method VARCHAR(20) NOT NULL DEFAULT 'cash',
+    reference VARCHAR(100) NULL,
+    note VARCHAR(255) NULL,
+    plan VARCHAR(40) NULL,
+    days_added INT NOT NULL DEFAULT 0,
+    created_by VARCHAR(100) NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX (tenant_id), INDEX (paid_on)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+  // What the owner / support team did
+  `CREATE TABLE IF NOT EXISTS platform_activity (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    admin_id INT NULL,
+    admin_name VARCHAR(100) NULL,
+    action VARCHAR(40) NOT NULL,
+    tenant_id INT NULL,
+    tenant_name VARCHAR(150) NULL,
+    details VARCHAR(500) NULL,
+    ip VARCHAR(60) NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX (tenant_id), INDEX (created_at)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+  `CREATE TABLE IF NOT EXISTS platform_settings (
+    k VARCHAR(60) NOT NULL PRIMARY KEY,
+    v VARCHAR(500) NOT NULL
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+  // Remembers every email / mobile / GST that already used a free trial (even after a cafe is deleted)
+  `CREATE TABLE IF NOT EXISTS platform_trials (
+    key_type CHAR(1) NOT NULL,
+    key_value VARCHAR(190) NOT NULL,
+    tenant_id INT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (key_type, key_value)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
+];
+
+async function addGlobalColumn(table, col, def) {
+  const r = await q(
+    "SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ? LIMIT 1",
+    [table, col]
+  );
+  if (!r.length) await q(`ALTER TABLE \`${table}\` ADD COLUMN \`${col}\` ${def}`);
+}
+
+const SEED_PLANS = [
+  // code, name, price, days, staff, tables, items, trial, order
+  ["trial", "Free Trial", 0, 14, 3, 12, 40, 1, 1],
+  ["free", "Free (no expiry)", 0, 0, null, null, null, 0, 2],
+  ["basic", "Basic", 499, 30, 5, 20, 100, 0, 3],
+  ["standard", "Standard", 999, 30, 15, 50, 300, 0, 4],
+  ["premium", "Premium", 1999, 30, null, null, null, 0, 5]
+];
+
 // Shared tables + the website owner account (ADMIN_EMAIL / ADMIN_PASSWORD in .env)
 async function migrateGlobal() {
   await q(DDL[0]); // bb_files is shared by all cafes
   for (const sql of PLATFORM_DDL) await q(sql);
+  for (const sql of PLATFORM_DDL_2) await q(sql);
+
+  await addGlobalColumn("platform_admins", "role", "VARCHAR(12) NOT NULL DEFAULT 'owner'");
+  await addGlobalColumn("platform_tenants", "owner_email_key", "VARCHAR(150) NULL");
+  await addGlobalColumn("platform_tenants", "owner_phone_key", "VARCHAR(10) NULL");
+  await addGlobalColumn("platform_tenants", "gst_no", "VARCHAR(20) NULL");
+  await addGlobalColumn("platform_tenants", "pending_password_hash", "VARCHAR(100) NULL");
+  await addGlobalColumn("platform_tenants", "approved_at", "TIMESTAMP NULL");
+  await q("UPDATE platform_tenants SET owner_email_key = LOWER(owner_email) WHERE owner_email_key IS NULL");
+
+  const [{ pn }] = await q("SELECT COUNT(*) pn FROM platform_plans");
+  if (!pn) {
+    await q(
+      "INSERT INTO platform_plans (code, name, price, duration_days, max_staff, max_tables, max_items, is_trial, sort_order) VALUES ?",
+      [SEED_PLANS]
+    );
+  }
 
   const email = String(process.env.ADMIN_EMAIL || "").trim().toLowerCase();
 
