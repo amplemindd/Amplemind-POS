@@ -59,12 +59,48 @@ const writeJson = (key, value) => {
   }
 };
 
+// Extra line icons (same style as ../lib/icons). Everything else falls back to the shared Icon set.
+const EXTRA_ICONS = {
+  drop: <path d="M12 3s6 6.4 6 11a6 6 0 0 1-12 0c0-4.6 6-11 6-11z" />,
+  tissue: (
+    <>
+      <path d="M4 12h16v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z" />
+      <path d="M8 12c-.3-3 1-6 4-8 3 2 4.3 5 4 8" />
+      <path d="M9.5 16.5h5" />
+    </>
+  ),
+  chat: (
+    <>
+      <path d="M21 12a8 8 0 0 1-11.5 7.2L4 20.5l1.3-4.4A8 8 0 1 1 21 12z" />
+      <path d="M8.5 12h.01M12 12h.01M15.5 12h.01" strokeWidth="2.6" />
+    </>
+  ),
+  star: <polygon points="12 2.5 15.1 8.8 22 9.8 17 14.7 18.2 21.5 12 18.3 5.8 21.5 7 14.7 2 9.8 8.9 8.8 12 2.5" />,
+  checkc: (
+    <>
+      <circle cx="12" cy="12" r="10" />
+      <polyline points="7.5 12.5 10.8 15.8 16.5 9" />
+    </>
+  ),
+};
+
+function Ic({ n, size = 18 }) {
+  if (EXTRA_ICONS[n]) {
+    return (
+      <svg className="ic" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        {EXTRA_ICONS[n]}
+      </svg>
+    );
+  }
+  return <Icon n={n} size={size} />;
+}
+
 // quick requests shown under "Need anything?"
 const NEEDS = [
-  { id: "water", label: "Water", icon: "💧" },
-  { id: "cutlery", label: "Cutlery", icon: "🍴" },
-  { id: "tissues", label: "Tissues", icon: "🧻" },
-  { id: "other", label: "Other", icon: "🙋" },
+  { id: "water", label: "Water", icon: "drop" },
+  { id: "cutlery", label: "Cutlery", icon: "utensils" },
+  { id: "tissues", label: "Tissues", icon: "tissue" },
+  { id: "other", label: "Other", icon: "chat" },
 ];
 
 // order stages: they follow the order status that staff set in the POS (pending > preparing > ready > completed)
@@ -72,7 +108,6 @@ const STAGES = [
   { key: "pending", step: "Order received", head: "Order received" },
   { key: "preparing", step: "In the kitchen", head: "Preparing" },
   { key: "ready", step: "Ready to serve", head: "Ready to serve" },
-  { key: "completed", step: "Served", head: "Served" },
 ];
 const TRACK_HOURS = 6; // a table's order is remembered on the phone for 6 hours
 
@@ -588,7 +623,12 @@ export default function CustomerOrder({ token }) {
     );
   }
 
-  const stageIdx = live ? Math.max(0, STAGES.findIndex((st) => st.key === live.status)) : 0;
+  // "completed" (paid / closed by staff) is shown as the last step: Ready to serve
+  const stageIdx = live
+    ? live.status === "completed"
+      ? STAGES.length - 1
+      : Math.max(0, STAGES.findIndex((st) => st.key === live.status))
+    : 0;
   const cancelled = live?.status === "cancelled";
   const pct = Math.round(((stageIdx + 1) / STAGES.length) * 100);
   const callBlocked = bellBusy || left > 0;
@@ -698,7 +738,7 @@ export default function CustomerOrder({ token }) {
 
             {live && (
               <button className={`cx-track-card ${cancelled ? "bad" : ""}`} onClick={openTrack}>
-                <span className="cx-tc-ic">{cancelled ? "⚠️" : stageIdx >= 3 ? "✅" : "🍽️"}</span>
+                <span className="cx-tc-ic"><Ic n={cancelled ? "alert" : stageIdx >= STAGES.length - 1 ? "checkc" : "utensils"} size={26} /></span>
                 <span className="cx-tc-tx">
                   <b>
                     {cancelled ? "Order cancelled" : STAGES[stageIdx].head} · {live.bill_no}
@@ -720,19 +760,19 @@ export default function CustomerOrder({ token }) {
 
             <div className="cx-quick">
               <button onClick={() => callCashier()} disabled={callBlocked}>
-                <span>🛎️</span>
+                <span><Ic n="bell" size={22} /></span>
                 Call Waiter
               </button>
               <button onClick={requestBill} disabled={callBlocked}>
-                <span>🧾</span>
+                <span><Ic n="receipt" size={22} /></span>
                 Request Bill
               </button>
               <button onClick={openFeedback}>
-                <span>⭐</span>
+                <span><Ic n="star" size={22} /></span>
                 Rate Us
               </button>
               <button onClick={() => setShowMore(true)}>
-                <span>⋯</span>
+                <span><Ic n="dots" size={22} /></span>
                 More
               </button>
             </div>
@@ -1026,7 +1066,7 @@ export default function CustomerOrder({ token }) {
                     className={needs.includes(n.id) ? "on" : ""}
                     onClick={() => toggleNeed(n.id)}
                   >
-                    <span>{n.icon}</span>
+                    <span><Ic n={n.icon} size={20} /></span>
                     {n.label}
                   </button>
                 ))}
@@ -1047,7 +1087,7 @@ export default function CustomerOrder({ token }) {
               disabled={callBlocked}
               onClick={() => (needs.length ? sendNeeds() : callCashier())}
             >
-              <span>🛎️</span>
+              <Ic n="bell" size={20} />
               {left > 0
                 ? `Call again in ${left}s`
                 : needs.length
@@ -1057,9 +1097,11 @@ export default function CustomerOrder({ token }) {
 
             <div className="cx-two">
               <button onClick={requestBill} disabled={callBlocked}>
-                🧾 Request Bill
+                <Ic n="receipt" size={18} /> Request Bill
               </button>
-              <button onClick={openFeedback}>⭐ Rate Us</button>
+              <button onClick={openFeedback}>
+                <Ic n="star" size={18} /> Rate Us
+              </button>
             </div>
 
             <button className="cx-linkbtn" onClick={closeTrack}>
@@ -1090,15 +1132,15 @@ export default function CustomerOrder({ token }) {
 
             <div className="cx-more">
               {[
-                ["🛎️", "Call Waiter", "Request staff assistance", () => { setShowMore(false); callCashier(); }],
-                ["🧾", "Request Bill", "Ask for your bill", () => { setShowMore(false); requestBill(); }],
-                ["⭐", "Feedback / Rate", "Share your experience", openFeedback],
-                ["📝", "Add Special Request", "Extra sauce, no spice, etc.", () => { setShowMore(false); setPanel("request"); }],
-                ["🔁", "Reorder", "Order again from your last order", reorder],
-                ["📍", "Restaurant Info", "Contact and location", () => { setShowMore(false); setPanel("info"); }],
+                ["bell", "Call Waiter", "Request staff assistance", () => { setShowMore(false); callCashier(); }],
+                ["receipt", "Request Bill", "Ask for your bill", () => { setShowMore(false); requestBill(); }],
+                ["star", "Feedback / Rate", "Share your experience", openFeedback],
+                ["edit", "Add Special Request", "Extra sauce, no spice, etc.", () => { setShowMore(false); setPanel("request"); }],
+                ["refresh", "Reorder", "Order again from your last order", reorder],
+                ["pin", "Restaurant Info", "Contact and location", () => { setShowMore(false); setPanel("info"); }],
               ].map(([icon, title, sub, fn]) => (
                 <button key={title} onClick={fn}>
-                  <span className="cx-more-ic">{icon}</span>
+                  <span className="cx-more-ic"><Ic n={icon} size={21} /></span>
                   <span className="cx-more-tx">
                     <b>{title}</b>
                     <small>{sub}</small>
@@ -1165,7 +1207,7 @@ export default function CustomerOrder({ token }) {
                         onClick={() => setRating(n)}
                         aria-label={`${n} star${n > 1 ? "s" : ""}`}
                       >
-                        ★
+                        <Ic n="star" size={38} />
                       </button>
                     ))}
                   </div>
@@ -1186,10 +1228,14 @@ export default function CustomerOrder({ token }) {
               <div className="cx-info">
                 <h3>{data.restaurant}</h3>
                 {data.tagline && <p>{data.tagline}</p>}
-                {data.address && <div>📍 {data.address}</div>}
+                {data.address && (
+                  <div className="cx-info-row">
+                    <Ic n="pin" size={18} /> <span>{data.address}</span>
+                  </div>
+                )}
                 {data.phone && (
-                  <div>
-                    📞 <a href={`tel:${data.phone}`}>{data.phone}</a>
+                  <div className="cx-info-row">
+                    <Ic n="phone" size={18} /> <a href={`tel:${data.phone}`}>{data.phone}</a>
                   </div>
                 )}
                 {!data.address && !data.phone && <p>Please ask our staff for more information.</p>}
@@ -1445,12 +1491,12 @@ const RAW_CSS = `
 /* ---- quick actions + order tracking ---- */
 .cx-quick{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:0 0 16px}
 .cx-quick button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;min-height:72px;padding:10px 4px;font-size:12px;font-weight:700;text-align:center;color:var(--cx-g);background:var(--cx-card);border:1px solid var(--cx-bd);box-shadow:0 2px 8px rgba(20,83,45,.07)}
-.cx-quick button span{font-size:23px;line-height:1}
+.cx-quick button span{display:grid;place-items:center;line-height:1}
 .cx-quick button:active:not(:disabled){transform:scale(.96)}
 .cx-quick button:disabled{opacity:.55}
 .cx-track-card{position:relative;width:100%;display:flex;align-items:center;gap:12px;margin:0 0 12px;padding:13px 14px 17px;color:var(--cx-g);background:linear-gradient(135deg,#e3f3e9,#f7fbf8);border:1px solid #cfe5d6;text-align:left}
 .cx-track-card.bad{color:#b42318;background:#fdecea;border-color:#f6c7c2}
-.cx-tc-ic{font-size:26px;line-height:1}
+.cx-tc-ic{display:grid;place-items:center;line-height:1}
 .cx-tc-tx{flex:1;min-width:0}
 .cx-tc-tx b{display:block;font-size:15px}
 .cx-tc-tx small{display:block;font-size:12px;color:var(--cx-mu)}
@@ -1458,7 +1504,11 @@ const RAW_CSS = `
 .cx-tc-bar span{display:block;height:100%;background:var(--cx-g);transition:width .6s}
 .cx-okbox{display:flex;flex-direction:column;align-items:center;gap:8px;margin:2px 0 14px;text-align:center;color:var(--cx-mu);font-size:14px}
 .cx-okbox b{color:var(--cx-tx);font-size:17px}
-.cx-okmark{width:62px;height:62px;display:grid;place-items:center;color:#fff;background:linear-gradient(135deg,#2f8f55,#14532d);box-shadow:0 8px 20px rgba(20,83,45,.3);animation:cx-pop .45s ease-out}
+.cx .cx-okmark{position:relative;width:62px;height:62px;display:grid;place-items:center;color:#fff;background:linear-gradient(135deg,#2f8f55,#14532d);border-radius:50%!important;box-shadow:0 8px 20px rgba(20,83,45,.3);animation:cx-pop .45s ease-out,cx-breathe 2s ease-in-out .45s infinite}
+.cx .cx-okmark::after{content:"";position:absolute;inset:0;border-radius:50%!important;border:2px solid #2f8f55;opacity:0;animation:cx-ripple 2s ease-out .45s infinite}
+@keyframes cx-breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.14)}}
+@keyframes cx-ripple{0%{transform:scale(1);opacity:.55}100%{transform:scale(1.7);opacity:0}}
+@media (prefers-reduced-motion:reduce){.cx .cx-okmark,.cx .cx-okmark::after{animation:none}}
 @keyframes cx-pop{0%{transform:scale(.4);opacity:0}70%{transform:scale(1.12)}100%{transform:scale(1);opacity:1}}
 .cx-center-sm{display:grid;place-items:center;padding:22px}
 .cx-status{padding:14px;background:var(--cx-bg);border:1px solid var(--cx-bd)}
@@ -1485,31 +1535,34 @@ const RAW_CSS = `
 .cx-need h3{margin-bottom:9px;font-size:16px;font-weight:800}
 .cx-need-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .cx-need-grid button{display:flex;align-items:center;gap:10px;min-height:50px;padding:0 14px;font-weight:700;background:var(--cx-card);border:1px solid var(--cx-bd)}
-.cx-need-grid button span{font-size:20px}
+.cx-need-grid button span{display:grid;place-items:center;color:var(--cx-g)}
 .cx-need-grid button.on{background:#fff3c4;border:2px solid var(--cx-gd)}
 .cx-need > input{width:100%;height:46px;margin-top:8px;padding:0 14px;font:inherit;color:var(--cx-tx);background:var(--cx-bg);border:1px solid var(--cx-bd);outline:0}
 .cx-need > input:focus{border-color:var(--cx-g)}
 .cx-call-big{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;margin-top:14px;padding:16px;font-size:17px;font-weight:800;color:#fff;background:var(--cx-g);text-align:center}
-.cx-call-big span{font-size:22px}
+
 .cx-call-big:disabled{opacity:.6}
 .cx-two{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
-.cx-two button{padding:13px 8px;font-weight:700;text-align:center;color:var(--cx-g);background:var(--cx-gl);border:1px solid #cfe5d6}
+.cx-two button{display:flex;align-items:center;justify-content:center;gap:8px;padding:13px 8px;font-weight:700;text-align:center;color:var(--cx-g);background:var(--cx-gl);border:1px solid #cfe5d6}
 .cx-two button:disabled{opacity:.55}
 .cx-linkbtn{width:100%;margin-top:6px;padding:12px;font-weight:700;text-align:center;color:var(--cx-g)}
 .cx-linkbtn.muted{color:var(--cx-mu);font-weight:600;font-size:13px}
 .cx-more{display:flex;flex-direction:column}
 .cx-more > button{display:flex;align-items:center;gap:12px;padding:12px 4px;border-bottom:1px solid var(--cx-bd);color:var(--cx-mu)}
-.cx-more-ic{width:42px;height:42px;display:grid;place-items:center;flex:none;font-size:21px;background:var(--cx-gl)}
+.cx-more-ic{width:42px;height:42px;display:grid;place-items:center;flex:none;color:var(--cx-g);background:var(--cx-gl)}
 .cx-more-tx{flex:1;min-width:0}
 .cx-more-tx b{display:block;color:var(--cx-tx);font-size:15px}
 .cx-more-tx small{display:block;font-size:12px;color:var(--cx-mu)}
 .cx-stars{display:flex;justify-content:center;gap:6px}
-.cx-stars button{font-size:40px;line-height:1;color:#d3d9d5;padding:0 4px;text-align:center}
+.cx-stars button{display:grid;place-items:center;line-height:1;color:#d3d9d5;padding:0 4px}
 .cx-stars button.on{color:#f5b301}
+.cx-stars button.on svg{fill:currentColor}
 .cx-info{display:flex;flex-direction:column;gap:10px;font-size:15px}
 .cx-info h3{font-size:19px;font-weight:800}
 .cx-info p{color:var(--cx-mu)}
 .cx-info a{color:var(--cx-g);font-weight:700}
+.cx-info-row{display:flex;align-items:flex-start;gap:8px}
+.cx-info-row svg{margin-top:3px;color:var(--cx-g)}
 
 @media (min-width:700px){
   .cx{max-width:560px;margin:0 auto;box-shadow:0 0 0 1px var(--cx-bd)}
