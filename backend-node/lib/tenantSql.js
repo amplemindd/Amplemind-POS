@@ -19,6 +19,7 @@ const TENANT_TABLES = [
   "bb_tables", "bb_customers", "bb_loyalty_tx", "bb_sequences", "bb_orders",
   "bb_order_items", "bb_payments", "bb_expense_categories", "bb_expenses",
   "bb_notifications", "bb_audit", "bb_backups", "bb_online_orders", "bb_kots",
+  "bb_table_parties", "bb_feedback", "bb_qr_customers", "bb_qr_customer_orders",
 ];
 
 const RE = new RegExp("(?<![\\w$])(" + TENANT_TABLES.join("|") + ")(?![\\w$])", "g");

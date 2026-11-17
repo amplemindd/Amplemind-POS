@@ -2,11 +2,26 @@ import Icon from "../lib/icons";
 import React, { useEffect, useState } from "react";
 import { api, cap, fmtDT, fmtTime, money, preset, saveCSV, TYPES, TYPE_ICON, img } from "../lib/api";
 import { navigate, takeHandoff, useAuth, useDebounced, useFetch, useShell, useUI } from "../lib/store";
-import { Badge, Empty, ErrorBox, Loading, Menu, Pager, RangePicker, SafeImg, Tabs } from "../lib/ui";
+import { Badge, Empty, ErrorBox, Loading, Pager, RangePicker, SafeImg, Tabs } from "../lib/ui";
 import { ReceiptModal } from "../components/Receipt";
+import SettleModal from "../components/SettleModal";
 
-const FLOW = { pending: ["preparing", "ready", "completed"], preparing: ["ready", "completed"], ready: ["completed"], completed: [], cancelled: [] };
-const STATUSES = ["pending", "preparing", "ready", "completed", "cancelled"];
+// an order can be settled (paid) only while it is open: unpaid and not cancelled / completed
+const canSettleRow = (o) => o.payment_status === "unpaid" && !["cancelled", "completed"].includes(o.status);
+
+// buttons the cashier sees: Serve -> Bill Pending (then payment closes the order).
+// "Accept" is done from the bell's New Orders list (it tells the customer the order was accepted).
+const FLOW = { pending: ["served"], preparing: ["served"], ready: ["served"], served: ["bill_pending"], bill_pending: [], completed: [], cancelled: [] };
+const ACTION = { served: ["Serve", "Order served."], bill_pending: ["Bill Pending", "Marked Bill Pending."], completed: ["Mark Completed", "Order completed."] };
+const STATUSES = ["pending", "preparing", "served", "bill_pending", "completed", "cancelled"];
+
+// borderless icon buttons for the Action column
+const FLAT = { border: 0, background: "none", boxShadow: "none", padding: 4, margin: 0, minWidth: 0, height: "auto", cursor: "pointer", color: "inherit", display: "inline-flex", alignItems: "center" };
+
+// small "eye" icon for View Details (same look as the other line icons)
+const EyeIcon = ({ size = 16 }) => (
+  <svg className="ic" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="square" strokeLinejoin="miter" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
+);
 
 export function OrderDetail({ id, onClose, onChanged }) {
   const { can } = useAuth();
@@ -14,6 +29,8 @@ export function OrderDetail({ id, onClose, onChanged }) {
   const { admin } = useShell();
   const d = useFetch(`/orders/${id}`, null, [id]);
   const [print, setPrint] = useState(false);
+  const [autoPrint, setAutoPrint] = useState(false);
+  const [settle, setSettle] = useState(false);
   const o = d.data?.order;
   const run = async (fn, ok) => { try { await fn(); toast(ok); d.reload(); onChanged(); } catch (e) { toast(e.message, "err"); } };
   const cancel = async () => {
@@ -43,25 +60,37 @@ export function OrderDetail({ id, onClose, onChanged }) {
       <h4 className="sp-t">Payment Details <Badge v={o.payment_status} /></h4>
       {o.payments.length ? o.payments.map((p, i) => <div className="kv" key={i}><span><Icon n={p.method === "cash" ? "cash" : p.method === "upi" ? "mobile" : "card"} size={15} /> {cap(p.method)} Payment{p.status === "refunded" ? " (refunded)" : ""}</span><b>{money(p.amount)} <small>{fmtTime(p.created_at)}</small></b></div>) : <p className="muted">No payment received yet.</p>}
       <div className="sp-actions">
-        <button className="btn pri" onClick={() => setPrint(true)}><Icon n="print" /> Print Bill</button>
-        <button className="btn" onClick={() => setPrint(true)}><Icon n="refresh" /> Reprint</button>
+        {o.is_open && can("pos") ? (
+          <>
+            <button className="btn pri" onClick={() => setSettle(true)}><Icon n="print" /> Settle &amp; Print</button>
+            <button className="btn" onClick={() => { setAutoPrint(false); setPrint(true); }}><Icon n="print" /> Print Bill</button>
+          </>
+        ) : (
+          <>
+            <button className="btn pri" onClick={() => { setAutoPrint(false); setPrint(true); }}><Icon n="print" /> Print Bill</button>
+            <button className="btn" onClick={() => { setAutoPrint(false); setPrint(true); }}><Icon n="refresh" /> Reprint</button>
+          </>
+        )}
         {o.is_open && can("pos") && <button className="btn" onClick={() => navigate(admin ? "/admin/pos" : "/", { orderId: o.id })}><Icon n="edit" /> Edit Order</button>}
-        {FLOW[o.status].length > 0 && can("pos") && (o.payment_status === "paid" ? FLOW[o.status] : FLOW[o.status].filter((s) => s !== "completed")).map((s) => <button key={s} className="btn" onClick={() => run(() => api(`/orders/${id}/status`, { method: "PATCH", body: { status: s } }), `Marked ${s}.`)}>Mark {cap(s)}</button>)}
-        {o.status !== "cancelled" && can("orders.cancel") && <button className="btn dng" onClick={cancel}><Icon n="trash" /> Cancel Order</button>}
+        {can("pos") && [...(FLOW[o.status] || []), ...(o.payment_status === "paid" && !["completed", "cancelled"].includes(o.status) ? ["completed"] : [])].map((s) => <button key={s} className="btn pri" onClick={() => run(() => api(`/orders/${id}/status`, { method: "PATCH", body: { status: s } }), ACTION[s][1])}>{ACTION[s][0]}</button>)}
+        {o.status !== "cancelled" && o.payment_status !== "paid" && can("orders.cancel") && <button className="btn dng" onClick={cancel}><Icon n="trash" /> Cancel Order</button>}
       </div>
-      {print && <ReceiptModal order={{ ...o }} onClose={() => setPrint(false)} />}
+      {settle && <SettleModal order={o} onClose={() => setSettle(false)} onDone={() => { setSettle(false); d.reload(); onChanged(); setAutoPrint(true); setPrint(true); }} />}
+      {print && <ReceiptModal orderId={id} auto={autoPrint} onClose={() => { setPrint(false); setAutoPrint(false); }} />}
     </div>
   );
 }
 
 export default function Orders() {
   const { can } = useAuth();
-  const { toast } = useUI();
+  const { toast, ask } = useUI();
   const { search, admin, reload } = useShell();
   const [f, setF] = useState({ type: "all", status: "all", payment_status: "all", method: "all", ...preset("today") });
   const [page, setPage] = useState(1);
   const [sel, setSel] = useState(null);
   const [print, setPrint] = useState(null);
+  const [printAuto, setPrintAuto] = useState(false);
+  const [settleFor, setSettleFor] = useState(null);
   const dq = useDebounced(search);
   const list = useFetch("/orders", { ...f, q: dq, page, limit: 10 }, [], 15000);
   useEffect(() => { const h = takeHandoff(); if (h && h.openId) { setSel(h.openId); setF((x) => ({ ...x, from: "", to: "" })); } }, []);
@@ -76,7 +105,11 @@ export default function Orders() {
         { label: "Items", key: "items" }, { label: "Total", key: "total" }, { label: "Payment", key: "methods" }, { label: "Payment Status", key: "payment_status" }, { label: "Status", key: "status" }]);
     } catch (e) { toast(e.message, "err"); }
   };
-  const act = async (o, fn, ok) => { try { await fn(); toast(ok); list.reload(); reload(); } catch (e) { toast(e.message, "err"); } };
+  const cancelOrder = async (o) => {
+    const reason = await ask(`Cancel order ${o.bill_no}?${o.payment_status === "paid" ? " The payment will be marked as refunded." : ""} Enter a reason:`, { input: true, danger: true, okText: "Cancel order", placeholder: "Reason for cancellation", title: "Cancel order" });
+    if (!reason) return;
+    try { await api(`/orders/${o.id}/cancel`, { method: "POST", body: { reason } }); toast("Order cancelled."); list.reload(); reload(); } catch (e) { toast(e.message, "err"); }
+  };
   return (
     <div className={`page split ${sel ? "has-panel" : ""}`}>
       <div className="split-main">
@@ -93,22 +126,34 @@ export default function Orders() {
         <div className="pills">{[["all", "All"], ...STATUSES.map((s) => [s, cap(s)])].map(([s, l]) => <button key={s} className={`pill ${f.status === s ? "on" : ""}`} onClick={() => set("status", s)}>{l} <i>{s === "all" ? Object.values(c.status).reduce((a, b) => a + b, 0) : c.status[s] || 0}</i></button>)}</div>
         <section className="card"><div className="table-wrap">
           {list.error && !data ? <ErrorBox msg={list.error} retry={list.reloadFull} /> : !data ? <Loading /> : !data.orders.length ? <Empty icon="receipt" text="No orders found for these filters." /> : (
-            <table className="tbl"><thead><tr><th>#</th><th>Bill No</th><th>Time</th><th>Table</th><th>Type</th><th>Customer</th><th>Items</th><th>Total (₹)</th><th>Payment</th><th>Status</th><th>Action</th></tr></thead>
+            <table className="tbl"><thead><tr><th>#</th><th>Bill No</th><th>Time</th><th>Table</th><th>Type</th><th>Customer</th><th>Items</th><th>Total (₹)</th><th>Payment</th><th>Status</th><th style={{ textAlign: "center" }}>Action</th></tr></thead>
               <tbody>{data.orders.map((o, i) => (
                 <tr key={o.id} className={sel === o.id ? "sel" : ""} onClick={() => setSel(o.id)}>
                   <td>{(page - 1) * 10 + i + 1}</td><td><b>{o.bill_no}</b></td><td>{fmtTime(o.created_at)}</td><td>{o.table_name || "-"}</td><td><Icon n={TYPE_ICON[o.order_type]} size={15} /> {TYPES[o.order_type]}</td>
                   <td>{o.customer_name}</td><td>{o.items}</td><td><b>{money(o.total)}</b></td>
                   <td><Badge v={o.payment_status} /> <small className="muted">{o.methods ? o.methods.split(",").map(cap).join(" + ") : ""}</small></td><td><Badge v={o.status} /></td>
-                  <td onClick={(e) => e.stopPropagation()}><Menu items={[["View Details", () => setSel(o.id)], ["Print Bill", () => setPrint(o.id)],
-                    ...(FLOW[o.status] || []).filter((s) => o.payment_status === "paid" || s !== "completed").map((s) => [`Mark ${cap(s)}`, () => act(o, () => api(`/orders/${o.id}/status`, { method: "PATCH", body: { status: s } }), `Marked ${s}.`)]),
-                    o.status !== "cancelled" && can("orders.cancel") ? ["Cancel Order", () => setSel(o.id), true] : null]} /></td>
+                  <td onClick={(e) => e.stopPropagation()}>
+                    <div style={{ display: "flex", gap: 4, justifyContent: "center", alignItems: "center" }}>
+                      <button type="button" style={FLAT} title="View Details" aria-label="View Details" onClick={() => setSel(o.id)}><EyeIcon size={18} /></button>
+                      {canSettleRow(o) && can("pos") ? (
+                        <button type="button" style={FLAT} title="Settle & Print" aria-label="Settle and Print" onClick={() => setSettleFor(o)}><Icon n="print" size={18} /></button>
+                      ) : (
+                        <button type="button" style={FLAT} title="Print Bill" aria-label="Print Bill" onClick={() => { setPrintAuto(false); setPrint(o.id); }}><Icon n="print" size={18} /></button>
+                      )}
+                      {can("orders.cancel") && (canSettleRow(o) ? (
+                        <button type="button" style={{ ...FLAT, color: "var(--err, #dc2626)" }} title="Cancel Order" aria-label="Cancel Order" onClick={() => cancelOrder(o)}><Icon n="x" size={20} /></button>
+                      ) : (
+                        <button type="button" disabled style={{ ...FLAT, color: "var(--err, #dc2626)", opacity: 0.3, cursor: "not-allowed" }} title={o.status === "cancelled" ? "Already cancelled" : "Paid / completed orders cannot be cancelled"} aria-label="Cancel not available"><Icon n="x" size={20} /></button>
+                      ))}
+                    </div>
+                  </td>
                 </tr>))}</tbody></table>
           )}
         </div>{data && <Pager page={page} total={data.total} limit={10} onPage={setPage} label="orders" />}</section>
       </div>
       {sel && <OrderDetail id={sel} onClose={() => setSel(null)} onChanged={() => { list.reload(); reload(); }} />}
-      {print && <ReceiptModal orderId={print} onClose={() => setPrint(null)} />}
+      {settleFor && <SettleModal order={settleFor} onClose={() => setSettleFor(null)} onDone={(o) => { setSettleFor(null); list.reload(); reload(); setPrintAuto(true); setPrint(o.id); }} />}
+      {print && <ReceiptModal orderId={print} auto={printAuto} onClose={() => { setPrint(null); setPrintAuto(false); }} />}
     </div>
   );
 }
-

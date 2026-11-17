@@ -4,7 +4,24 @@ import { api, fmtDate, fmtTime, TYPES, img, cap } from "../lib/api";
 import { useAuth } from "../lib/store";
 import { Modal, Loading } from "../lib/ui";
 import { printReceipt } from "../lib/printReceipt";
+import { edEnabled, edPrintBill, edPrintKot } from "../lib/edprint";
 import "../styles/receipt.css";
+
+// KOT printing: straight to the thermal printer via EDPrintTool when it is switched on (Settings > Receipt),
+// otherwise (or if EDPrintTool cannot be reached) through the normal browser print.
+function printKotSmart(o, restaurant, el) {
+  if (edEnabled()) {
+    edPrintKot(o, restaurant).catch((e) => { console.warn("EDPrintTool failed, using browser print:", e.message); printReceipt(el || undefined); });
+  } else printReceipt(el || undefined);
+}
+
+// Customer bill: straight to the thermal printer (no Windows print window) when EDPrintTool is switched on,
+// otherwise (or if EDPrintTool cannot be reached) through the normal browser print.
+function printBillSmart(o, S, el) {
+  if (edEnabled() && o) {
+    edPrintBill(o, S).catch((e) => { console.warn("EDPrintTool failed, using browser print:", e.message); printReceipt(el || undefined); });
+  } else printReceipt(el || undefined);
+}
 
 const n2 = (v) => Number(v || 0).toFixed(2);
 const rs = (v) => "\u20B9" + n2(v);
@@ -56,7 +73,7 @@ export default function Receipt({ order: o, settings: S }) {
       </table>
       <hr className="r-line" />
       <div className="r-row"><span>Total Qty: {totalQty}</span><span className="r-sub"><span>Sub Total</span><span>{n2(o.subtotal)}</span></span></div>
-      {o.discount_amount > 0 && <div className="r-row"><span>Discount</span><span>-{n2(o.discount_amount)}</span></div>}
+      {o.discount_amount > 0 && <div className="r-row" style={{ fontWeight: 700 }}><span>Discount</span><span>-{n2(o.discount_amount)}</span></div>}
       {S.show_tax_on_bill && o.tax_amount > 0 && (o.tax_breakdown || []).map((b) =>
         S.show_gst_details ? (
           <React.Fragment key={b.rate}>
@@ -79,7 +96,7 @@ export default function Receipt({ order: o, settings: S }) {
   );
 }
 
-export function ReceiptModal({ order, orderId, onClose, auto }) {
+export function ReceiptModal({ order, orderId, onClose, auto, onSettle }) {
   const { settings } = useAuth();
   const [d, setD] = useState(order ? { order, S: settings } : null);
   const [err, setErr] = useState("");
@@ -88,9 +105,9 @@ export function ReceiptModal({ order, orderId, onClose, auto }) {
     api(`/orders/${orderId}/receipt`).then((r) => setD({ order: r.order, S: { ...settings, ...r.receipt_settings } })).catch((e) => setErr(e.message));
   }, [order, orderId, settings]);
   useEffect(() => { document.body.classList.add("print-receipt"); return () => document.body.classList.remove("print-receipt"); }, []);
-  useEffect(() => { if (auto && d) { const t = setTimeout(() => printReceipt(), 400); return () => clearTimeout(t); } }, [auto, d]);
+  useEffect(() => { if (auto && d) { const t = setTimeout(() => printBillSmart(d.order, d.S), 400); return () => clearTimeout(t); } }, [auto, d]);
   return (
-    <Modal title="Bill / Receipt" onClose={onClose} footer={<><button className="btn" onClick={onClose}>Close</button><button className="btn pri" onClick={() => printReceipt()}><Icon n="print" /> Print Bill</button></>}>
+    <Modal title="Bill / Receipt" onClose={onClose} footer={<><button className="btn" onClick={onClose}>Close</button><button className={`btn ${onSettle ? "" : "pri"}`} onClick={() => printBillSmart(d && d.order, d && d.S)}><Icon n="print" /> Print Bill</button>{onSettle && <button className="btn pri" onClick={onSettle}>Settle</button>}</>}>
       {err ? <div className="errbox"><Icon n="alert" /> {err}</div> : d ? <Receipt order={d.order} settings={d.S} /> : <Loading />}
     </Modal>
   );
@@ -99,13 +116,13 @@ export function ReceiptModal({ order, orderId, onClose, auto }) {
 export function KotModal({ order: o, auto, autoClose, onClose }) {
   const { settings } = useAuth();
   useEffect(() => { document.body.classList.add("print-receipt"); return () => document.body.classList.remove("print-receipt"); }, []);
-  useEffect(() => { if (auto) { const t = setTimeout(() => printReceipt(), 400); return () => clearTimeout(t); } }, [auto]);
+  useEffect(() => { if (auto) { const t = setTimeout(() => printKotSmart(o, settings.restaurant_name), 400); return () => clearTimeout(t); } }, [auto]);
   // auto-printed (QR) tickets close themselves once the print has been sent
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { if (auto && autoClose) { const t = setTimeout(onClose, 4000); return () => clearTimeout(t); } }, [auto, autoClose]);
   const where = `${TYPES[o.order_type] || ""}${o.table_name ? `: ${o.table_name}` : ""}`;
   return (
-    <Modal title="Kitchen Order Ticket (KOT)" onClose={onClose} footer={<><button className="btn" onClick={onClose}>Close</button><button className="btn pri" onClick={() => printReceipt()}>Print KOT</button></>}>
+    <Modal title="Kitchen Order Ticket (KOT)" onClose={onClose} footer={<><button className="btn" onClick={onClose}>Close</button><button className="btn pri" onClick={() => printKotSmart(o, settings.restaurant_name)}>Print KOT</button></>}>
       <div className={`receipt r-bill r-kot ${settings.paper_size === "58mm" ? "p58" : ""}`} id="receipt">
         <div className="r-c"><h4 className="r-shop">KITCHEN ORDER</h4><p className="r-addr">{settings.restaurant_name}</p></div>
         <hr className="r-line" />
@@ -131,7 +148,7 @@ export function KotAutoPrint({ order: o, onDone }) {
   const { settings } = useAuth();
   const ref = React.useRef(null);
   useEffect(() => {
-    const t1 = setTimeout(() => { if (ref.current) printReceipt(ref.current); }, 300);
+    const t1 = setTimeout(() => { printKotSmart(o, settings.restaurant_name, ref.current); }, 300);
     const t2 = setTimeout(onDone, 3000);
     return () => { clearTimeout(t1); clearTimeout(t2); };
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -392,6 +392,49 @@ async function provisionTenant(tid, opts = {}) {
       INDEX (order_id)
     )`);
   
+    // Guests that scanned the table QR and said how many people are sitting
+    await q(`CREATE TABLE IF NOT EXISTS bb_table_parties (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      table_id INT NOT NULL,
+      guests INT NOT NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      ended_at DATETIME NULL,
+      INDEX idx_party_table (table_id, ended_at)
+    )`);
+
+    // Customer feedback (rating 1-5, tags, comment) from the QR page
+    await q(`CREATE TABLE IF NOT EXISTS bb_feedback (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      table_id INT NULL,
+      table_name VARCHAR(50) NULL,
+      order_id INT NULL,
+      bill_no VARCHAR(30) NULL,
+      customer_name VARCHAR(100) NULL,
+      rating TINYINT NOT NULL,
+      tags VARCHAR(120) NULL,
+      comment VARCHAR(400) NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_fb_created (created_at),
+      INDEX idx_fb_rating (rating)
+    )`);
+
+    // Returning QR customers (recognised by a cookie) and their orders
+    await q(`CREATE TABLE IF NOT EXISTS bb_qr_customers (
+      cid CHAR(32) PRIMARY KEY,
+      name VARCHAR(100) NULL,
+      phone VARCHAR(20) NULL,
+      first_seen TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      last_seen DATETIME NULL
+    )`);
+    await q(`CREATE TABLE IF NOT EXISTS bb_qr_customer_orders (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      cid CHAR(32) NOT NULL,
+      order_id INT NOT NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_cid_order (cid, order_id),
+      INDEX idx_cid (cid, order_id)
+    )`);
+  
     await addColumn("bb_orders", "source", "VARCHAR(20) NOT NULL DEFAULT 'direct'");
   
     await q("UPDATE categories SET display_order = id WHERE display_order = 0");

@@ -11,6 +11,7 @@ import {
 import { api, img, money, ago, TYPES } from "../lib/api";
 import { SafeImg, useClickAway } from "../lib/ui";
 import { KotAutoPrint } from "./Receipt";
+import { edEnabled } from "../lib/edprint";
 import PlatIcon from "./PlatIcon";
 
 const PN = { swiggy: "Swiggy", zomato: "Zomato" };
@@ -31,6 +32,7 @@ const ADMIN = [
   ["tables", "Tables", "table", "/admin/tables", "tables"],
   ["categories", "Categories & Items", "folder", "/admin/categories", "menu"],
   ["customers", "Customers", "users", "/admin/customers", "customers"],
+  ["feedback", "Feedback", "sparkle", "/admin/feedback", "customers"],
   ["expenses", "Expenses", "rupee", "/admin/expenses", "expenses"],
   ["taxes", "Taxes / GST", "percent", "/admin/taxes", "taxes"],
   ["users", "Staff / Users", "user", "/admin/users", "staff"],
@@ -57,6 +59,7 @@ const NOTE_ICON = {
   staff: "users",
 };
 const NOTE_LINK = {
+  feedback: "/admin/feedback",
   order: "/admin/orders",
   table: "/admin/tables",
   product: "/admin/categories",
@@ -166,7 +169,14 @@ export default function Shell({ admin, children }) {
     setHiddenIds((h) => [...h, ...ids]);
     setLocalPending((l) => l.filter((n) => !ids.includes(n.id)));
     if (list.length >= pendingOrders.length) setOrdMenu("");
-    await Promise.all(ids.map((id) => api(`/notifications/${id}/read`, { method: "PATCH" }).catch(() => {})));
+    // Accept = stop the ring AND mark the order "preparing" (accepted), so the customer's phone updates.
+    // The status call fails harmlessly if the order was already accepted / cancelled elsewhere.
+    await Promise.all(
+      list.flatMap((n) => [
+        api(`/notifications/${n.id}/read`, { method: "PATCH" }).catch(() => {}),
+        n.link_id ? api(`/orders/${n.link_id}/status`, { method: "PATCH", body: { status: "preparing" } }).catch(() => {}) : null,
+      ]),
+    );
     reloadNewOrders.current();
   };
   const [pops, setPops] = useState([]);
@@ -373,7 +383,7 @@ export default function Shell({ admin, children }) {
     const list = kots.data?.kots;
     if (!list) return;
     const max = list.reduce((m, o) => Math.max(m, o.id), 0);
-    if (seen.current.kot !== null && settings.qr_auto_kot !== false) {
+    if (seen.current.kot !== null && settings.qr_auto_kot !== false && edEnabled()) {
       const qrNew = list.filter((k) => k.id > seen.current.kot && k.waiter_name === "QR Customer");
       if (qrNew.length)
         setKotQueue((prev) => [
