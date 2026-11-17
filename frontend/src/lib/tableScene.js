@@ -1,5 +1,7 @@
 // Top-down "3D look" table illustration (black marble table, black chairs, seated customers, glowing status ring).
 // Pure function -> SVG string, so it is light, fast and needs no 3D library.
+// In front of every seated guest: a smartphone while the food has not been served yet (phase "occupied"),
+// and a plate of food once the order is served (phase "served" / "bill").
 
 export const PHASES = {
   available: { label: "Available", ring: "#22c55e", ringOpacity: 0.55 },
@@ -139,6 +141,22 @@ function plateSvg(x, y, seed) {
 </g>`;
 }
 
+// Smartphone lying in front of a guest who is still choosing / waiting (top-down view).
+// Its top edge points to the middle of the table, so the guest looks at the screen.
+function phoneSvg(x, y, rot, seed) {
+  const tilt = ((seed % 5) - 2) * 4; // every phone sits a little differently
+  const hue = ["#60a5fa", "#38bdf8", "#818cf8", "#34d399"][seed % 4];
+  return `<g transform="translate(${r1(x)} ${r1(y)}) rotate(${r1(rot + tilt)})">
+<rect x="-5.6" y="-9.2" width="11.2" height="18.4" rx="2.8" fill="#000" opacity=".28" transform="translate(1.2 1.8)"/>
+<rect x="-5.4" y="-9" width="10.8" height="18" rx="2.8" fill="#16161a" stroke="#8b8b96" stroke-width=".8"/>
+<rect x="-4.2" y="-7.4" width="8.4" height="14.6" rx="1.8" fill="${hue}"/>
+<rect x="-4.2" y="-7.4" width="8.4" height="6" rx="1.8" fill="#ffffff" opacity=".28"/>
+<path d="M-2.6 -1.4h5.2M-2.6 1.2h5.2M-2.6 3.8h3.2" stroke="#ffffff" stroke-width=".9" stroke-linecap="round" opacity=".85"/>
+<rect x="-1.5" y="7.7" width="3" height=".8" rx=".4" fill="#6b6b75"/>
+<rect x="-1.6" y="-8.4" width="3.2" height=".8" rx=".4" fill="#0b0b0d"/>
+</g>`;
+}
+
 function plantSvg() {
   const leaves = [0, 60, 120, 180, 240, 300]
     .map((a) => `<ellipse cx="0" cy="-9" rx="4.2" ry="10" fill="url(#LEAF)" transform="rotate(${a})"/>`)
@@ -202,14 +220,15 @@ export function buildTableSvg({ uid = "t", shape = "round", seats = 4, guests = 
 
   const chairs = geo.list.map(chairSvg).join("");
 
-  // plates in front of each guest
+  // in front of each guest: smartphone until the food is served, then the plate of food
+  const foodOnTable = phase === "served" || phase === "bill";
   let plates = "";
   let people = "";
   seated.forEach((idx, k) => {
     const c = geo.list[idx];
     const px = c.x - c.ox * 30;
     const py = c.y - c.oy * 30;
-    plates += plateSvg(px, py, k + idx);
+    plates += foodOnTable ? plateSvg(px, py, k + idx) : phoneSvg(px, py, c.a, k + idx);
     people += personSvg(c, (Number(uid.replace(/\D/g, "")) || 1) * 7 + idx * 3 + k);
   });
 
