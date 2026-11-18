@@ -147,7 +147,7 @@ function computeLayout(items, cafeName) {
   const widest = Math.min(3.3, ds.reduce((m, d) => Math.max(m, 2 * d.a), 2.8));
   const bmax = ds.reduce((m, d) => Math.max(m, d.b), 1.3);
   const sx = widest + 0.45;
-  const sz = 2 * bmax + 0.6;
+  const sz = 2 * bmax + 1.15;
   const LR = 2.7;
   const RR = 1.1;
   const W = LR + cols * sx + RR;
@@ -252,7 +252,7 @@ function createRoom(THREE, RoundedBoxGeometry, host, onPick) {
       g.fillRect(0, 0, w, h);
       const pw = 64;
       for (let x = 0; x < w; x += pw) {
-        g.fillStyle = `hsl(24,${42 + R() * 10}%,${26 + R() * 10}%)`;
+        g.fillStyle = `hsl(25,${34 + R() * 10}%,${22 + R() * 9}%)`;
         g.fillRect(x, 0, pw - 2, h);
         for (let i = 0; i < 70; i++) {
           g.strokeStyle = `rgba(0,0,0,${0.04 + R() * 0.08})`;
@@ -471,9 +471,11 @@ function createRoom(THREE, RoundedBoxGeometry, host, onPick) {
     }
 
     // pendant lamps
-    const lamps = Math.max(3, Math.round(W / 4.2));
+    const lamps = Math.max(3, Math.round(W / 3.2));
+    const signX = -W / 2 + LRsign(L);
     for (let i = 0; i < lamps; i++) {
       const lx = -W / 2 + (W * (i + 0.5)) / lamps;
+      if (Math.abs(lx - signX) < 2.5 || Math.abs(lx - shx) < 2.1) continue;
       const lz = -D / 2 + 0.9;
       sg.add(M(cyl(0.008, 0.008, 1.0, 6), std("#14100c"), lx, WALL_H - 0.5, lz, false));
       const shade = new THREE.Mesh(
@@ -522,7 +524,7 @@ function createRoom(THREE, RoundedBoxGeometry, host, onPick) {
     });
 
     // soft light + sun
-    sg.add(new THREE.HemisphereLight("#ffe7c2", "#2a1a10", 0.95));
+    sg.add(new THREE.HemisphereLight("#ffe7c2", "#2a1a10", 0.8));
     const sun = new THREE.DirectionalLight("#fff0d8", 1.25);
     sun.position.set(W * 0.25, 9, D * 0.4);
     sun.target.position.set(0, 0, 0);
@@ -611,7 +613,7 @@ function createRoom(THREE, RoundedBoxGeometry, host, onPick) {
 
   function chairMesh(seat) {
     const g = new THREE.Group();
-    const leather = std("#1c1c22", { roughness: 0.55 });
+    const leather = std("#2c2c35", { roughness: 0.6 });
     g.add(M(box(0.44, 0.07, 0.44, 0.03), leather, 0, 0.45, 0));
     g.add(M(box(0.44, 0.46, 0.06, 0.03), leather, 0, 0.72, -0.2));
     for (const sx of [-1, 1]) for (const sz of [-1, 1]) g.add(M(cyl(0.02, 0.02, 0.42, 8), std("#0e0e12", { metalness: 0.6, roughness: 0.4 }), sx * 0.18, 0.21, sz * 0.18));
@@ -631,7 +633,7 @@ function createRoom(THREE, RoundedBoxGeometry, host, onPick) {
     const seed = Number(it.id) || 1;
     const food = it.phase === "served" || it.phase === "bill";
     const guests = Math.max(0, Math.min(Number(it.guests) || 0, n));
-    const marble = S("m:marble", () => new THREE.MeshStandardMaterial({ map: marbleTex(), roughness: 0.25, metalness: 0.15 }));
+    const marble = S("m:marble", () => new THREE.MeshStandardMaterial({ map: marbleTex(), roughness: 0.55, metalness: 0.05 }));
     const dark = std("#0c0c10", { roughness: 0.4, metalness: 0.3 });
     const gold = std("#d9a93f", { roughness: 0.3, metalness: 0.85 });
 
@@ -739,7 +741,7 @@ function createRoom(THREE, RoundedBoxGeometry, host, onPick) {
       el.querySelector(".r3-sub").textContent = it.sub || "";
       el.addEventListener("click", () => onPick(it.id));
       labelLayer.appendChild(el);
-      labels.push({ el, id: it.id, x: p.x, z: p.z + p.d.b - 0.2 });
+      labels.push({ el, id: it.id, x: p.x, z: p.z + p.d.b - 0.35, a: p.d.a });
     });
   }
 
@@ -777,6 +779,11 @@ function createRoom(THREE, RoundedBoxGeometry, host, onPick) {
   }
 
   /* ---------- camera, size, loop ---------- */
+  const v3 = new THREE.Vector3();
+  const v3b = new THREE.Vector3();
+  const bx = new THREE.Vector3();
+  const by = new THREE.Vector3();
+  const bz = new THREE.Vector3();
   let dist = 20;
   let viewW = 800;
   let viewH = 500;
@@ -788,15 +795,55 @@ function createRoom(THREE, RoundedBoxGeometry, host, onPick) {
     host.style.height = viewH + "px";
     renderer.setSize(viewW, viewH, false);
     camera.aspect = viewW / viewH;
+    camera.updateProjectionMatrix();
+    const ext = fitCamera();
+    // the room is wider than tall on screen: shrink the box so there is no empty dark band above/below
+    if (ext.h > 0.2 && ext.h < 1.75) {
+      viewH = Math.round(Math.max(340, viewH * Math.max(0.7, ext.h / 1.9)));
+      host.style.height = viewH + "px";
+      renderer.setSize(viewW, viewH, false);
+      camera.aspect = viewW / viewH;
+      camera.updateProjectionMatrix();
+      fitCamera();
+    }
+  }
+  // move/zoom the camera until the 8 corners of the room fill the screen (small margin), centred
+  function fitCamera() {
+    let ew = 2;
+    let eh = 2;
     const tanV = Math.tan((FOV * Math.PI) / 360);
     const tanH = tanV * camera.aspect;
-    const dW = (room.W * 0.53) / tanH;
-    const vExt = room.D * Math.sin(PITCH) + WALL_H * Math.cos(PITCH);
-    const dH = (vExt * 0.55) / tanV;
-    dist = Math.max(dW, dH) * 1.02;
     target.set(0, 0.9, 0.2);
-    camera.updateProjectionMatrix();
-    host.style.setProperty("--fs", Math.max(11, Math.min(19, viewW / 62)) + "px");
+    dist = Math.max((room.W * 0.55) / tanH, (room.D * 0.7) / tanV);
+    for (let it = 0; it < 4; it++) {
+      camera.position.set(target.x, target.y + Math.sin(PITCH) * dist, target.z + Math.cos(PITCH) * dist);
+      camera.lookAt(target);
+      camera.updateMatrixWorld(true);
+      let mnx = 1e9;
+      let mxx = -1e9;
+      let mny = 1e9;
+      let mxy = -1e9;
+      for (const x of [-room.W / 2, room.W / 2])
+        for (const y of [0, WALL_H])
+          for (const z of [-room.D / 2, room.D / 2]) {
+            v3.set(x, y, z).project(camera);
+            mnx = Math.min(mnx, v3.x);
+            mxx = Math.max(mxx, v3.x);
+            mny = Math.min(mny, v3.y);
+            mxy = Math.max(mxy, v3.y);
+          }
+      ew = mxx - mnx;
+      eh = mxy - mny;
+      const f = Math.max((mxx - mnx) / 1.92, (mxy - mny) / 1.92);
+      if (isFinite(f) && f > 0.05) dist *= f;
+      const cxn = (mxx + mnx) / 2;
+      const cyn = (mxy + mny) / 2;
+      if (isFinite(cxn) && isFinite(cyn)) {
+        camera.matrixWorld.extractBasis(bx, by, bz);
+        target.addScaledVector(bx, cxn * dist * tanH).addScaledVector(by, cyn * dist * tanV);
+      }
+    }
+    return { w: ew, h: eh };
   }
   const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(() => resize()) : null;
   if (ro) ro.observe(host);
@@ -839,7 +886,6 @@ function createRoom(THREE, RoundedBoxGeometry, host, onPick) {
   let running = true;
   const io = typeof IntersectionObserver !== "undefined" ? new IntersectionObserver((es) => (running = es[0].isIntersecting && !document.hidden)) : null;
   if (io) io.observe(host);
-  const v3 = new THREE.Vector3();
   function loop(ts) {
     raf = requestAnimationFrame(loop);
     if (!running || !room) return;
@@ -858,9 +904,15 @@ function createRoom(THREE, RoundedBoxGeometry, host, onPick) {
     renderer.render(scene, camera);
     labels.forEach((l) => {
       v3.set(l.x, 0.05, l.z).project(camera);
+      v3b.set(l.x + l.a, 0.05, l.z).project(camera);
       const vis = v3.z < 1 && Math.abs(v3.x) < 1.15 && Math.abs(v3.y) < 1.15;
       l.el.style.display = vis ? "" : "none";
-      if (vis) l.el.style.transform = `translate(${((v3.x * 0.5 + 0.5) * viewW).toFixed(1)}px,${((-v3.y * 0.5 + 0.5) * viewH).toFixed(1)}px) translateX(-50%)`;
+      if (vis) {
+        // label size follows how big the table looks on screen (far tables = smaller label)
+        const dia = Math.abs(v3b.x - v3.x) * viewW;
+        const sc = Math.max(0.5, Math.min(1.1, dia / 215));
+        l.el.style.transform = `translate(${((v3.x * 0.5 + 0.5) * viewW).toFixed(1)}px,${((-v3.y * 0.5 + 0.5) * viewH).toFixed(1)}px) translateX(-50%) scale(${sc.toFixed(3)})`;
+      }
     });
   }
   raf = requestAnimationFrame(loop);
@@ -886,13 +938,13 @@ function createRoom(THREE, RoundedBoxGeometry, host, onPick) {
 }
 
 const ROOM3D_CSS = `
-.r3-wrap{position:relative;width:100%;min-height:380px;border-radius:18px;overflow:hidden;background:#0b1510;border:1px solid rgba(255,255,255,.08);box-shadow:0 14px 40px rgba(0,0,0,.35);--fs:15px}
+.r3-wrap{position:relative;width:100%;min-height:380px;border-radius:18px !important;overflow:hidden;background:#0b1510;border:1px solid rgba(255,255,255,.08);box-shadow:0 14px 40px rgba(0,0,0,.35);--fs:15px}
 .r3-cv{position:absolute;inset:0}
 .r3-labels{position:absolute;inset:0;overflow:hidden;pointer-events:none}
-.r3-lab{position:absolute;left:0;top:0;text-align:center;pointer-events:auto;cursor:pointer;user-select:none;will-change:transform;transition:opacity .2s}
+.r3-lab{position:absolute;left:0;top:0;transform-origin:50% 0;text-align:center;pointer-events:auto;cursor:pointer;user-select:none;will-change:transform;transition:opacity .2s}
 .r3-nm{font-weight:800;color:#fff;font-size:calc(var(--fs)*1.3);line-height:1.1;text-shadow:0 2px 6px rgba(0,0,0,.9),0 0 2px #000}
-.r3-pill{display:inline-flex;align-items:center;gap:.45em;padding:.2em .8em .22em .6em;border-radius:999px;color:#fff;font-weight:700;font-size:var(--fs);white-space:nowrap;border:1px solid rgba(255,255,255,.4);box-shadow:0 0 14px var(--c),0 2px 6px rgba(0,0,0,.5)}
-.r3-pill i{width:.55em;height:.55em;border-radius:50%;background:#fff;display:inline-block}
+.r3-pill{display:inline-flex;align-items:center;gap:.45em;padding:.2em .8em .22em .6em;border-radius:999px !important;color:#fff;font-weight:700;font-size:var(--fs);white-space:nowrap;border:1px solid rgba(255,255,255,.4);box-shadow:0 0 14px var(--c),0 2px 6px rgba(0,0,0,.5)}
+.r3-pill i{width:.55em;height:.55em;border-radius:50% !important;background:#fff;display:inline-block}
 .r3-sub{font-weight:600;color:#e7efe9;font-size:calc(var(--fs)*.85);margin-top:.15em;white-space:nowrap;text-shadow:0 1px 4px #000,0 0 2px #000}
 .r3-lab.on .r3-nm{text-decoration:underline}
 .r3-lab.on .r3-pill{outline:2px solid #fff;outline-offset:2px}
