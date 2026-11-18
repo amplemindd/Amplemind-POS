@@ -82,8 +82,8 @@ function seeded(a) {
 /* ------------------------------------------------------------------ sizes */
 
 const WALL_H = 3.4;
-const PITCH = (50 * Math.PI) / 180; // camera looks down at 50 degrees
-const FOV = 34;
+const PITCH = (52 * Math.PI) / 180; // camera looks down at 52 degrees
+const FOV = 28;
 
 // sizes in metres. a/b = half width/depth of the glow ring (incl. chairs), p = ring "squareness"
 function dimsOf(shape, n) {
@@ -177,7 +177,7 @@ function createRoom(THREE, RoundedBoxGeometry, host, onPick) {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.05;
+  renderer.toneMappingExposure = 1.22;
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.domElement.style.cssText = "width:100%;height:100%;display:block";
@@ -252,7 +252,7 @@ function createRoom(THREE, RoundedBoxGeometry, host, onPick) {
       g.fillRect(0, 0, w, h);
       const pw = 64;
       for (let x = 0; x < w; x += pw) {
-        g.fillStyle = `hsl(25,${34 + R() * 10}%,${22 + R() * 9}%)`;
+        g.fillStyle = `hsl(25,${34 + R() * 10}%,${25 + R() * 9}%)`;
         g.fillRect(x, 0, pw - 2, h);
         for (let i = 0; i < 70; i++) {
           g.strokeStyle = `rgba(0,0,0,${0.04 + R() * 0.08})`;
@@ -395,10 +395,10 @@ function createRoom(THREE, RoundedBoxGeometry, host, onPick) {
     const g = new THREE.Group();
     g.position.set(x, 0, z);
     g.add(M(box(0.42, 0.55, 1.7, 0.05), std("#3a2415", { roughness: 0.7 }), 0, 0.275, 0));
-    g.add(M(box(0.34, 0.5, 1.6, 0.16), std("#2f8f46", { roughness: 0.8 }), 0, 0.78, 0));
-    for (let i = 0; i < 6; i++) {
-      const leaf = M(cone(0.08, 0.5, 5), std(pick(["#43b25f", "#3aa356", "#56c872"], i)), 0, 1.15, -0.65 + i * 0.26);
-      leaf.rotation.z = (i % 2 ? 1 : -1) * 0.18;
+    g.add(M(box(0.36, 0.42, 1.55, 0.07), std("#2a7a3d", { roughness: 0.85 }), 0, 0.76, 0));
+    for (let i = 0; i < 10; i++) {
+      const leaf = M(cone(0.085, 0.55 + (i % 3) * 0.1, 5), std(pick(["#43b25f", "#3aa356", "#56c872", "#2f8f46"], i)), (i % 2 ? 1 : -1) * 0.07, 1.08, -0.68 + i * 0.15);
+      leaf.rotation.z = (i % 2 ? -1 : 1) * 0.3;
       g.add(leaf);
     }
     parent.add(g);
@@ -524,8 +524,8 @@ function createRoom(THREE, RoundedBoxGeometry, host, onPick) {
     });
 
     // soft light + sun
-    sg.add(new THREE.HemisphereLight("#ffe7c2", "#2a1a10", 0.8));
-    const sun = new THREE.DirectionalLight("#fff0d8", 1.25);
+    sg.add(new THREE.HemisphereLight("#ffe7c2", "#3a2515", 1.05));
+    const sun = new THREE.DirectionalLight("#fff0d8", 1.4);
     sun.position.set(W * 0.25, 9, D * 0.4);
     sun.target.position.set(0, 0, 0);
     sun.castShadow = true;
@@ -562,11 +562,11 @@ function createRoom(THREE, RoundedBoxGeometry, host, onPick) {
     });
   const haloMat = (color, dim) =>
     S(`halo:${color}:${dim}`, () => {
-      const m = new THREE.MeshBasicMaterial({ color, toneMapped: false, transparent: true, opacity: dim ? 0.05 : 0.2, blending: THREE.AdditiveBlending, depthWrite: false });
+      const m = new THREE.MeshBasicMaterial({ color, toneMapped: false, transparent: true, opacity: dim ? 0.05 : 0.27, blending: THREE.AdditiveBlending, depthWrite: false });
       return m;
     });
   const glowMat = (color, dim) =>
-    S(`glowfloor:${color}:${dim}`, () => new THREE.MeshBasicMaterial({ map: glowTex(), color, toneMapped: false, transparent: true, opacity: dim ? 0.15 : 0.7, blending: THREE.AdditiveBlending, depthWrite: false }));
+    S(`glowfloor:${color}:${dim}`, () => new THREE.MeshBasicMaterial({ map: glowTex(), color, toneMapped: false, transparent: true, opacity: dim ? 0.15 : 0.95, blending: THREE.AdditiveBlending, depthWrite: false }));
 
   const ringGeo = (a, b, p, tube) =>
     G(`ring:${a.toFixed(2)}:${b.toFixed(2)}:${p}:${tube}`, () => {
@@ -701,14 +701,14 @@ function createRoom(THREE, RoundedBoxGeometry, host, onPick) {
 
     // glowing ring on the floor
     if (lk.ring) {
-      g.add(new THREE.Mesh(ringGeo(d.a, d.b, d.p, 0.035), ringMat(lk.ring, dim)));
-      g.add(new THREE.Mesh(ringGeo(d.a, d.b, d.p, 0.11), haloMat(lk.ring, dim)));
+      g.add(new THREE.Mesh(ringGeo(d.a, d.b, d.p, 0.05), ringMat(lk.ring, dim)));
+      g.add(new THREE.Mesh(ringGeo(d.a, d.b, d.p, 0.17), haloMat(lk.ring, dim)));
       const gl = new THREE.Mesh(G(`gl:${d.a}:${d.b}`, () => new THREE.PlaneGeometry(d.a * 2.5, d.b * 2.5)), glowMat(lk.ring, dim));
       gl.rotation.x = -Math.PI / 2;
       gl.position.y = 0.012;
       g.add(gl);
     }
-    const selRing = new THREE.Mesh(ringGeo(d.a + 0.14, d.b + 0.14, d.p, 0.025), basic("#ffffff"));
+    const selRing = new THREE.Mesh(ringGeo(d.a + 0.08, d.b + 0.08, d.p, 0.018), basic("#ffffff"));
     selRing.visible = false;
     g.add(selRing);
 
@@ -910,7 +910,7 @@ function createRoom(THREE, RoundedBoxGeometry, host, onPick) {
       if (vis) {
         // label size follows how big the table looks on screen (far tables = smaller label)
         const dia = Math.abs(v3b.x - v3.x) * viewW;
-        const sc = Math.max(0.5, Math.min(1.1, dia / 215));
+        const sc = Math.max(0.6, Math.min(1.15, dia / 195));
         l.el.style.transform = `translate(${((v3.x * 0.5 + 0.5) * viewW).toFixed(1)}px,${((-v3.y * 0.5 + 0.5) * viewH).toFixed(1)}px) translateX(-50%) scale(${sc.toFixed(3)})`;
       }
     });
