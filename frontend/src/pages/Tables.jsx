@@ -8,6 +8,7 @@ import { Badge, Empty, ErrorBox, Field, Loading, Modal, Tabs } from "../lib/ui";
 import { ReceiptModal } from "../components/Receipt";
 import { QR_BRAND, downloadQrCard } from "../lib/qrcard";
 import { buildTableSvg, PHASES, T3D_CSS, tableShape } from "../lib/tableScene";
+import { buildRoom, ROOM_CSS } from "../lib/roomScene";
 import "../styles/table-qr.css";
 
 // what the floor plan shows (the server sends "phase"; older servers only send "status")
@@ -47,6 +48,53 @@ function FloorTile({ t, on, onClick, i }) {
         {guests > seats && ` · seats ${seats}`}
       </span>
     </button>
+  );
+}
+
+// The whole café as one 3D-style room (see lib/roomScene.js)
+function RoomView({ tables, shownKey, sel, onPick, cafeName }) {
+  const scene = useMemo(() => {
+    const shownIds = new Set(shownKey ? shownKey.split(",").map(Number) : []);
+    const items = tables.map((t) => {
+      const phase = phaseOf(t);
+      const live = ["occupied", "served", "bill"].includes(phase);
+      const guests = live ? t.seated || t.order?.guests || 0 : 0;
+      let sub = "";
+      if (live && t.order) sub = `${elapsed(t.status_since)} · ${money(t.order.total)}`;
+      else if (phase === "occupied") sub = "QR scanned · choosing";
+      else if (phase === "reserved") sub = `${t.reserved_for || "Reserved"}${t.reserved_at ? ` · ${fmtTime(t.reserved_at)}` : ""}`;
+      else if (phase === "cleaning") sub = "Est. 15 min";
+      else if (phase === "available") sub = `${t.capacity} seats`;
+      return {
+        id: t.id,
+        name: /^\d+$/.test(String(t.name)) ? `Table ${t.name}` : t.name,
+        capacity: t.capacity,
+        shape: tableShape(t.capacity, t.id),
+        phase,
+        label: labelOf(phase),
+        guests,
+        sub,
+        dim: !shownIds.has(t.id),
+      };
+    });
+    return buildRoom({ tables: items, selected: sel, cafeName });
+  }, [tables, shownKey, sel, cafeName]);
+  const pick = (e) => {
+    const el = e.target && e.target.closest ? e.target.closest("[data-tid]") : null;
+    if (el) onPick(Number(el.getAttribute("data-tid")));
+  };
+  return (
+    <div
+      className="rm-wrap"
+      onClick={pick}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          pick(e);
+        }
+      }}
+      dangerouslySetInnerHTML={{ __html: scene.svg }}
+    />
   );
 }
 
@@ -370,12 +418,12 @@ const makeQr = () => {
 }
 
 export default function Tables() {
-  const { can } = useAuth();
+  const { can, settings } = useAuth();
   const { toast, ask } = useUI();
   const { search, admin } = useShell();
   const list = useFetch("/tables", null, [], 10000);
   const [flt, setFlt] = useState("all");
-  const [view, setView] = useState("floor");
+  const [view, setView] = useState("room");
   const [sel, setSel] = useState(null);
   const [form, setForm] = useState(null);
   const [res, setRes] = useState(null);
@@ -433,9 +481,25 @@ export default function Tables() {
         toast(e.message, "err");
       }
   };
+  const legend = (
+    <div className="t3d-legend">
+      {[
+        ["available", "#22c55e"],
+        ["occupied", "#2563eb"],
+        ["served", "#f59e0b"],
+        ["bill", "#ef4444"],
+      ].map(([k, c]) => (
+        <span key={k} style={{ color: c }}>
+          <i />
+          <em style={{ fontStyle: "normal", color: "var(--tx2)" }}>{labelOf(k)}</em>
+        </span>
+      ))}
+      <span style={{ color: "var(--tx2)", fontWeight: 500 }}>Number in brackets = guests seated</span>
+    </div>
+  );
   return (
     <div className={`page split tables-page ${sel ? "has-panel" : ""}`}>
-      <style>{T3D_CSS}</style>
+      <style>{T3D_CSS + ROOM_CSS}</style>
       <div className="split-main">
         <div className="ph">
           <div>
@@ -445,6 +509,12 @@ export default function Tables() {
             </p>
           </div>
           <div className="row-end trow">
+            <button
+              className={`btn ${view === "room" ? "pri" : ""}`}
+              onClick={() => setView("room")}
+            >
+              <Icon n="table" /> 3D Room
+            </button>
             <button
               className={`btn ${view === "floor" ? "pri" : ""}`}
               onClick={() => setView("floor")}
@@ -511,22 +581,20 @@ export default function Tables() {
           <Loading />
         ) : !shown.length ? (
           <Empty icon="table" text="No tables found." />
+        ) : view === "room" ? (
+          <>
+            {legend}
+            <RoomView
+              tables={all}
+              shownKey={shown.map((t) => t.id).join(",")}
+              sel={sel}
+              onPick={setSel}
+              cafeName={settings?.restaurant_name}
+            />
+          </>
         ) : view === "floor" ? (
           <>
-            <div className="t3d-legend">
-              {[
-                ["available", "#22c55e"],
-                ["occupied", "#2563eb"],
-                ["served", "#f59e0b"],
-                ["bill", "#ef4444"],
-              ].map(([k, c]) => (
-                <span key={k} style={{ color: c }}>
-                  <i />
-                  <em style={{ fontStyle: "normal", color: "var(--tx2)" }}>{labelOf(k)}</em>
-                </span>
-              ))}
-              <span style={{ color: "var(--tx2)", fontWeight: 500 }}>Number in brackets = guests seated</span>
-            </div>
+            {legend}
             <div className="t3d-floor">
               {shown.map((t, i) => (
                 <FloorTile key={t.id} i={i} t={t} on={sel === t.id} onClick={() => setSel(t.id)} />
