@@ -4,6 +4,8 @@ import { api, cap, img, money, uid } from "../lib/api";
 import { navigate, useAuth, useFetch, useUI } from "../lib/store";
 import { Empty, Loading, SafeImg } from "../lib/ui";
 import "../styles/waiter.css";
+const LOGO = process.env.PUBLIC_URL + "/amplemind-logo.png"; // logo file: frontend/public/amplemind-logo.png
+const BRAND_NAME = "Amplemind Technologies";
 
 const Veg = ({ t }) => (
   <span
@@ -135,7 +137,7 @@ export default function Waiter() {
       (tf === "free" && t.status === "available") ||
       (tf === "busy" && t.status === "occupied"),
   );
-  const shopName = String(d?.shop || "Amplemind Cafe").trim();
+  const shopName = String(d?.shop || BRAND_NAME).trim();
   const shopWords = shopName.split(/\s+/);
   const shopLast = shopWords.length > 1 ? shopWords.pop() : "";
 
@@ -216,14 +218,14 @@ export default function Waiter() {
         </button>
         <div className="wt-brand">
           <span className="wt-blogo">
-            <SafeImg src={d?.logo_url ? img(d.logo_url) : ""} size={30} />
+            <SafeImg src={d?.logo_url ? img(d.logo_url) : LOGO} size={30} />
           </span>
           <div className="wt-bname">
             <b>
               {shopWords.join(" ")}
               {shopLast && <span> {shopLast}</span>}
             </b>
-            <small>{d?.company || "Amplemind-POS"}</small>
+            <small>{BRAND_NAME}</small>
           </div>
         </div>
         <div className="wt-who">

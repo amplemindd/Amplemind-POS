@@ -1,4 +1,3 @@
-
 import Icon from "./lib/icons";
 import React from "react";
 import { A, AuthProvider, UIProvider, useAuth, usePath } from "./lib/store";
@@ -102,7 +101,7 @@ function Router() {
     return (
       <div className="splash">
         <div className="spin" />
-        <p>Loading Chai Order System…</p>
+        <p>Loading Amplemind Technologies…</p>
       </div>
     );
   }

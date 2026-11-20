@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from "react";
 import Icon from "../lib/icons";
-import { api, img, setToken } from "../lib/api";
+import { api, setToken } from "../lib/api";
 import { navigate, useAuth } from "../lib/store";
+const LOGO = process.env.PUBLIC_URL + "/amplemind-logo.png"; // logo file: frontend/public/amplemind-logo.png
+const BRAND_NAME = "Amplemind Technologies";
 
 export default function WaiterLogin() {
-  const { user, can, refresh, settings } = useAuth();
+  const { user, can, refresh } = useAuth();
   const [f, setF] = useState({ phone: "", password: "" });
   const [show, setShow] = useState(false);
   const [err, setErr] = useState("");
@@ -36,14 +38,13 @@ export default function WaiterLogin() {
     <main className="wl">
       <div className="wl-top">
         <span className="wl-logo">
-          {settings.logo_url ? (
-            <img src={img(settings.logo_url)} alt="" />
+          {LOGO ? (
+            <img src={LOGO} alt="" />
           ) : (
             <Icon n="coffee" size={34} />
           )}
         </span>
-        <h1>{settings.company_name || "Amplemind-POS"}</h1>
-        <p>{settings.restaurant_name}</p>
+        <h1>{BRAND_NAME}</h1>
         <i className="wl-sq a" />
         <i className="wl-sq b" />
       </div>

@@ -1,8 +1,8 @@
-
 import React, { useEffect, useState } from "react";
 import Icon from "../lib/icons";
 import { A, navigate, useAuth } from "../lib/store";
-import { img } from "../lib/api";
+const LOGO = process.env.PUBLIC_URL + "/amplemind-logo.png"; // logo file: frontend/public/amplemind-logo.png
+const BRAND_NAME = "Amplemind Technologies";
 
 export default function Login() {
   const {
@@ -62,7 +62,7 @@ export default function Login() {
   };
 
   const name =
-    settings?.restaurant_name || "Chai Order System";
+    BRAND_NAME;
 
   return (
     <main className="lgn">
@@ -71,9 +71,9 @@ export default function Login() {
 
         <div className="lgn-brand">
           <span className="lgn-logo">
-            {settings?.logo_url ? (
+            {LOGO ? (
               <img
-                src={img(settings.logo_url)}
+                src={LOGO}
                 alt=""
               />
             ) : (
@@ -143,9 +143,9 @@ export default function Login() {
           <div className="lgn-mobile-brand">
 
             <span className="lgn-logo">
-              {settings?.logo_url ? (
+              {LOGO ? (
                 <img
-                  src={img(settings.logo_url)}
+                  src={LOGO}
                   alt=""
                 />
               ) : (

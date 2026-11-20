@@ -13,6 +13,8 @@ import { SafeImg, useClickAway } from "../lib/ui";
 import { KotAutoPrint } from "./Receipt";
 import { edEnabled } from "../lib/edprint";
 import PlatIcon from "./PlatIcon";
+const LOGO = process.env.PUBLIC_URL + "/amplemind-logo.png"; // logo file: frontend/public/amplemind-logo.png
+const BRAND_NAME = "Amplemind Technologies";
 
 const PN = { swiggy: "Swiggy", zomato: "Zomato" };
 const PUBLIC = [
@@ -523,7 +525,7 @@ export default function Shell({ admin, children }) {
       .then(reload)
       .catch(() => {});
   };
-  const name = settings.restaurant_name || "Chai Order System";
+  const name = settings.restaurant_name || BRAND_NAME;
 
   return (
     <ShellCtx.Provider
@@ -556,7 +558,7 @@ export default function Shell({ admin, children }) {
           <A to={admin ? "/admin-dashboard" : "/"} className="brand">
             <span className="blogo">
               <SafeImg
-                src={settings.logo_url ? img(settings.logo_url) : ""}
+                src={settings.logo_url ? img(settings.logo_url) : LOGO}
                 size={26}
               />
             </span>
