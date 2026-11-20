@@ -15,8 +15,17 @@ import { edEnabled } from "../lib/edprint";
 import PlatIcon from "./PlatIcon";
 const LOGO = process.env.PUBLIC_URL + "/amplemind-logo.png"; // logo file: frontend/public/amplemind-logo.png
 const BRAND_NAME = "Amplemind POS";
-const BRAND_SUB = "Powered by Amplemind Technologies";
-const CIRCLE = (px) => ({ width: px, height: px, minWidth: px, maxWidth: px, padding: 2, background: "#fff", clipPath: "circle(50%)", boxShadow: "none" }); // circle logo (global CSS blocks border-radius)
+const BRAND_SUB = "Powered by Amplemind Technologies Pvt Ltd Pvt Ltd";
+const CIRCLE = (px) => ({
+  width: px,
+  height: px,
+  minWidth: px,
+  maxWidth: px,
+  padding: 2,
+  background: "#fff",
+  clipPath: "circle(50%)",
+  boxShadow: "none",
+}); // circle logo (global CSS blocks border-radius)
 
 const PN = { swiggy: "Swiggy", zomato: "Zomato" };
 const PUBLIC = [
@@ -108,7 +117,12 @@ export default function Shell({ admin, children }) {
     [bump],
     5000,
   );
-  const cats = useFetch(admin ? (can("pos") ? "/categories" : "") : "/categories", { pos: 1 }, [bump], 60000);
+  const cats = useFetch(
+    admin ? (can("pos") ? "/categories" : "") : "/categories",
+    { pos: 1 },
+    [bump],
+    60000,
+  );
   const online = useFetch("/online/summary", null, [bump], 3000);
   const kots = useFetch("/kots/latest", null, [bump], 3000);
   const qrEvents = useFetch(can("pos") ? "/qr/events" : "", null, [], 1000);
@@ -136,7 +150,9 @@ export default function Shell({ admin, children }) {
     try {
       const saved = JSON.parse(localStorage.getItem("bb_qr_pending") || "[]");
       const limit = Date.now() - 12 * 60 * 60 * 1000;
-      return saved.filter((n) => !Date.parse(n.created_at) || Date.parse(n.created_at) > limit);
+      return saved.filter(
+        (n) => !Date.parse(n.created_at) || Date.parse(n.created_at) > limit,
+      );
     } catch {
       return [];
     }
@@ -151,17 +167,26 @@ export default function Shell({ admin, children }) {
   // Server list (shared) + orders just received on this screen. The local copy shows the order at once,
   // without waiting for the server list to refresh.
   const serverPending = canNotes
-    ? (newOrdersSrv.data?.notifications || []).filter((n) => String(n.title || "").startsWith("QR Order Received"))
+    ? (newOrdersSrv.data?.notifications || []).filter((n) =>
+        String(n.title || "").startsWith("QR Order Received"),
+      )
     : [];
-  const pendingOrders = [...serverPending, ...localPending.filter((n) => !serverPending.some((x) => x.id === n.id))]
+  const pendingOrders = [
+    ...serverPending,
+    ...localPending.filter((n) => !serverPending.some((x) => x.id === n.id)),
+  ]
     .filter((n) => !hiddenIds.includes(n.id))
     .sort((a, b) => b.id - a.id);
   // Managers/admins: once the server list is fresh, drop local copies that someone already accepted elsewhere.
   useEffect(() => {
     if (!canNotes || !newOrdersSrv.data) return;
-    const ids = new Set((newOrdersSrv.data.notifications || []).map((n) => n.id));
+    const ids = new Set(
+      (newOrdersSrv.data.notifications || []).map((n) => n.id),
+    );
     setLocalPending((l) => {
-      const keep = l.filter((n) => ids.has(n.id) || Date.now() - (n.seenAt || 0) < 8000);
+      const keep = l.filter(
+        (n) => ids.has(n.id) || Date.now() - (n.seenAt || 0) < 8000,
+      );
       return keep.length === l.length ? l : keep;
     });
   }, [newOrdersSrv.data, canNotes]);
@@ -178,7 +203,12 @@ export default function Shell({ admin, children }) {
     await Promise.all(
       list.flatMap((n) => [
         api(`/notifications/${n.id}/read`, { method: "PATCH" }).catch(() => {}),
-        n.link_id ? api(`/orders/${n.link_id}/status`, { method: "PATCH", body: { status: "preparing" } }).catch(() => {}) : null,
+        n.link_id
+          ? api(`/orders/${n.link_id}/status`, {
+              method: "PATCH",
+              body: { status: "preparing" },
+            }).catch(() => {})
+          : null,
       ]),
     );
     reloadNewOrders.current();
@@ -260,30 +290,33 @@ export default function Shell({ admin, children }) {
     };
   }, [getCtx]);
 
-  const tone = useCallback((freq, secs, vol) => {
-    try {
-      const context = getCtx();
-      if (!context) return;
+  const tone = useCallback(
+    (freq, secs, vol) => {
+      try {
+        const context = getCtx();
+        if (!context) return;
 
-      const oscillator = context.createOscillator();
-      const gain = context.createGain();
+        const oscillator = context.createOscillator();
+        const gain = context.createGain();
 
-      oscillator.connect(gain);
-      gain.connect(context.destination);
-      oscillator.type = "sine";
-      oscillator.frequency.value = freq;
+        oscillator.connect(gain);
+        gain.connect(context.destination);
+        oscillator.type = "sine";
+        oscillator.frequency.value = freq;
 
-      gain.gain.setValueAtTime(0.0001, context.currentTime);
-      gain.gain.linearRampToValueAtTime(vol, context.currentTime + 0.05);
-      gain.gain.setValueAtTime(vol, context.currentTime + secs - 0.25);
-      gain.gain.linearRampToValueAtTime(0.0001, context.currentTime + secs);
+        gain.gain.setValueAtTime(0.0001, context.currentTime);
+        gain.gain.linearRampToValueAtTime(vol, context.currentTime + 0.05);
+        gain.gain.setValueAtTime(vol, context.currentTime + secs - 0.25);
+        gain.gain.linearRampToValueAtTime(0.0001, context.currentTime + secs);
 
-      oscillator.start();
-      oscillator.stop(context.currentTime + secs);
-    } catch {
-      // Sound is optional; the POS must continue working without it.
-    }
-  }, [getCtx]);
+        oscillator.start();
+        oscillator.stop(context.currentTime + secs);
+      } catch {
+        // Sound is optional; the POS must continue working without it.
+      }
+    },
+    [getCtx],
+  );
 
   const beep = useCallback(() => {
     tone(880, 0.5, 0.15);
@@ -356,11 +389,17 @@ export default function Shell({ admin, children }) {
     }
   }, [getCtx]);
 
-  const pushPop = useCallback((p, playSound = true) => {
-    setPops((list) => [...list.slice(-2), p]);
-    if (playSound) beep();
-    setTimeout(() => setPops((list) => list.filter((item) => item.id !== p.id)), 3000);
-  }, [beep]);
+  const pushPop = useCallback(
+    (p, playSound = true) => {
+      setPops((list) => [...list.slice(-2), p]);
+      if (playSound) beep();
+      setTimeout(
+        () => setPops((list) => list.filter((item) => item.id !== p.id)),
+        3000,
+      );
+    },
+    [beep],
+  );
   const onl = online.data?.summary || {};
   const onlineNew = (onl.swiggy?.new || 0) + (onl.zomato?.new || 0);
   useEffect(() => {
@@ -387,8 +426,14 @@ export default function Shell({ admin, children }) {
     const list = kots.data?.kots;
     if (!list) return;
     const max = list.reduce((m, o) => Math.max(m, o.id), 0);
-    if (seen.current.kot !== null && settings.qr_auto_kot !== false && edEnabled()) {
-      const qrNew = list.filter((k) => k.id > seen.current.kot && k.waiter_name === "QR Customer");
+    if (
+      seen.current.kot !== null &&
+      settings.qr_auto_kot !== false &&
+      edEnabled()
+    ) {
+      const qrNew = list.filter(
+        (k) => k.id > seen.current.kot && k.waiter_name === "QR Customer",
+      );
       if (qrNew.length)
         setKotQueue((prev) => [
           ...prev,
@@ -400,13 +445,19 @@ export default function Shell({ admin, children }) {
             table_name: k.table_name,
             source: "qr",
             kot_note: k.instructions || "",
-            items: (k.items || []).map((i) => ({ id: i.name, product_name: i.name, qty: i.qty })),
+            items: (k.items || []).map((i) => ({
+              id: i.name,
+              product_name: i.name,
+              qty: i.qty,
+            })),
           })),
         ]);
     }
     if (seen.current.kot !== null)
       list
-        .filter((k) => k.id > seen.current.kot && k.waiter_name !== "QR Customer")
+        .filter(
+          (k) => k.id > seen.current.kot && k.waiter_name !== "QR Customer",
+        )
         .reverse()
         .forEach((k) =>
           pushPop({
@@ -424,7 +475,10 @@ export default function Shell({ admin, children }) {
     const events = qrEvents.data?.events;
     if (!events) return;
 
-    const max = events.reduce((currentMax, event) => Math.max(currentMax, Number(event.id)), 0);
+    const max = events.reduce(
+      (currentMax, event) => Math.max(currentMax, Number(event.id)),
+      0,
+    );
 
     if (seen.current.qr !== null) {
       events
@@ -441,7 +495,17 @@ export default function Shell({ admin, children }) {
             setLocalPending((l) =>
               l.some((x) => x.id === event.id)
                 ? l
-                : [...l, { id: event.id, title: event.title, message: event.message, link_id: event.link_id, created_at: event.created_at, seenAt: Date.now() }],
+                : [
+                    ...l,
+                    {
+                      id: event.id,
+                      title: event.title,
+                      message: event.message,
+                      link_id: event.link_id,
+                      created_at: event.created_at,
+                      seenAt: Date.now(),
+                    },
+                  ],
             );
             reloadNewOrders.current();
             reloadKots.current();
@@ -470,16 +534,20 @@ export default function Shell({ admin, children }) {
     const unlockSound = () => {
       const context = getCtx();
       if (!context) return;
-      context.resume().then(() => {
-        if (context.state === "running") {
-          setSoundLocked(false);
-          if (hasPendingRef.current) ringOrder();
-        }
-      }).catch(() => {});
+      context
+        .resume()
+        .then(() => {
+          if (context.state === "running") {
+            setSoundLocked(false);
+            if (hasPendingRef.current) ringOrder();
+          }
+        })
+        .catch(() => {});
     };
     const events = ["click", "keydown", "touchstart"];
     events.forEach((e) => window.addEventListener(e, unlockSound));
-    return () => events.forEach((e) => window.removeEventListener(e, unlockSound));
+    return () =>
+      events.forEach((e) => window.removeEventListener(e, unlockSound));
   }, [soundLocked, getCtx, ringOrder]);
 
   // Keep ringing every 6 seconds until every new order is accepted.
@@ -561,13 +629,32 @@ export default function Shell({ admin, children }) {
             <span className="blogo" style={CIRCLE(48)}>
               <SafeImg
                 src={settings.logo_url ? img(settings.logo_url) : LOGO}
-                style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "contain",
+                  display: "block",
+                }}
                 size={26}
               />
             </span>
             <span className="bname">
-              <b>{(() => { const w = String(name).toUpperCase().split(" "); return w.length > 1 ? <>{w.slice(0, -1).join(" ")} <span className="bn-acc">{w[w.length - 1]}</span></> : w[0]; })()}</b>
-              <small style={{ letterSpacing: ".06em", fontSize: 10 }}>{BRAND_SUB}</small>
+              <b>
+                {(() => {
+                  const w = String(name).toUpperCase().split(" ");
+                  return w.length > 1 ? (
+                    <>
+                      {w.slice(0, -1).join(" ")}{" "}
+                      <span className="bn-acc">{w[w.length - 1]}</span>
+                    </>
+                  ) : (
+                    w[0]
+                  );
+                })()}
+              </b>
+              <small style={{ letterSpacing: ".06em", fontSize: 10 }}>
+                {BRAND_SUB}
+              </small>
             </span>
           </A>
           <div className="hsearch">
@@ -586,14 +673,22 @@ export default function Shell({ admin, children }) {
                   className={`hbtn plat neworders ${hasPending ? "alert ringing" : ""}`}
                   onClick={() => setOrdMenu(ordMenu === "new" ? "" : "new")}
                   aria-label="New orders"
-                  title={hasPending ? `${pendingOrders.length} new order(s) waiting` : "New orders"}
+                  title={
+                    hasPending
+                      ? `${pendingOrders.length} new order(s) waiting`
+                      : "New orders"
+                  }
                 >
                   <Icon n="bag" size={23} />
-                  {hasPending && <span className="bdg">{pendingOrders.length}</span>}
+                  {hasPending && (
+                    <span className="bdg">{pendingOrders.length}</span>
+                  )}
                 </button>
                 {ordMenu === "new" && (
                   <div className="dd">
-                    <div className="dd-t">New Orders ({pendingOrders.length})</div>
+                    <div className="dd-t">
+                      New Orders ({pendingOrders.length})
+                    </div>
                     {pendingOrders.slice(0, 5).map((n) => (
                       <div
                         key={n.id}
@@ -602,7 +697,10 @@ export default function Shell({ admin, children }) {
                         tabIndex={0}
                         onClick={() => {
                           setOrdMenu("");
-                          navigate(admin ? "/admin/pos" : "/", n.link_id ? { orderId: Number(n.link_id) } : null);
+                          navigate(
+                            admin ? "/admin/pos" : "/",
+                            n.link_id ? { orderId: Number(n.link_id) } : null,
+                          );
                         }}
                         onKeyDown={(e) => {
                           if (e.key === "Enter") e.currentTarget.click();
@@ -627,10 +725,16 @@ export default function Shell({ admin, children }) {
                         </button>
                       </div>
                     ))}
-                    {!hasPending && <p className="muted pad">No new orders waiting.</p>}
+                    {!hasPending && (
+                      <p className="muted pad">No new orders waiting.</p>
+                    )}
                     {pendingOrders.length > 1 && (
-                      <button className="dd-f" onClick={() => acceptOrders(pendingOrders)}>
-                        Accept all ({pendingOrders.length}) <Icon n="check" size={15} />
+                      <button
+                        className="dd-f"
+                        onClick={() => acceptOrders(pendingOrders)}
+                      >
+                        Accept all ({pendingOrders.length}){" "}
+                        <Icon n="check" size={15} />
                       </button>
                     )}
                   </div>
@@ -818,7 +922,12 @@ export default function Shell({ admin, children }) {
               )}
             </div>
             {admin && (
-              <A to="/admin/notifications" className="hbtn" aria-label="Inbox" title="Notifications">
+              <A
+                to="/admin/notifications"
+                className="hbtn"
+                aria-label="Inbox"
+                title="Notifications"
+              >
                 <Icon n="mail" size={22} />
                 {unread > 0 && <span className="bdg">{unread}</span>}
               </A>
@@ -847,50 +956,75 @@ export default function Shell({ admin, children }) {
           <nav>
             {nav.map(([k, label, ic, to], i) => (
               <React.Fragment key={k}>
-              <A
-                to={to}
-                className={`nav ${act(to) ? "on" : ""}`}
-                style={{ "--i": i }}
-                title={label}
-              >
-                <Icon n={ic} size={19} />
-                <em>{label}</em>
-                {k === "orders" && openOrders.length > 0 && (
-                  <b className="nbdg">{openOrders.length}</b>
-                )}
-                {k === "online" && onlineNew > 0 && (
-                  <b className="nbdg">{onlineNew}</b>
-                )}
-                {k === "notifications" && unread > 0 && (
-                  <b className="nbdg">{unread}</b>
-                )}
-              </A>
-              {k === "pos" && admin && poCats.length > 0 && (
-                <div className="catgrp">
-                  <button type="button" className={`nav catgrp-h ${catOpen ? "open" : ""}`} onClick={() => setCatOpen(!catOpen)} aria-expanded={catOpen} title="Categories">
-                    <Icon n="folder" size={19} />
-                    <em>Categories</em>
-                    <b className="catgrp-n">{poCats.length}</b>
-                    <Icon n={catOpen ? "chevup" : "chevdown"} size={16} />
-                  </button>
-                  {catOpen && (
-                    <div className="catgrp-l">
-                                            <div className="catgrp-items">
-{poCats.map((c) => (
-                        <button type="button" key={c.id} className={`nav sub ${path === "/admin/pos" && poCur === String(c.id) ? "on" : ""}`} onClick={() => { setCatSel(c.id); setDrawer(false); navigate("/admin/pos"); }} title={c.name}>
-                          <em>{c.name}</em>
-                        </button>
-                      ))}
-                      </div>
-
-                      <button type="button" className={`nav sub ${path === "/admin/pos" && poCur === "all" ? "on" : ""}`} onClick={() => { setCatSel("all"); setDrawer(false); navigate("/admin/pos"); }} title="All Items">
-                        <Icon n="grid" size={17} />
-                        <em>All Items</em>
-                      </button>
-                    </div>
+                <A
+                  to={to}
+                  className={`nav ${act(to) ? "on" : ""}`}
+                  style={{ "--i": i }}
+                  title={label}
+                >
+                  <Icon n={ic} size={19} />
+                  <em>{label}</em>
+                  {k === "orders" && openOrders.length > 0 && (
+                    <b className="nbdg">{openOrders.length}</b>
                   )}
-                </div>
-              )}
+                  {k === "online" && onlineNew > 0 && (
+                    <b className="nbdg">{onlineNew}</b>
+                  )}
+                  {k === "notifications" && unread > 0 && (
+                    <b className="nbdg">{unread}</b>
+                  )}
+                </A>
+                {k === "pos" && admin && poCats.length > 0 && (
+                  <div className="catgrp">
+                    <button
+                      type="button"
+                      className={`nav catgrp-h ${catOpen ? "open" : ""}`}
+                      onClick={() => setCatOpen(!catOpen)}
+                      aria-expanded={catOpen}
+                      title="Categories"
+                    >
+                      <Icon n="folder" size={19} />
+                      <em>Categories</em>
+                      <b className="catgrp-n">{poCats.length}</b>
+                      <Icon n={catOpen ? "chevup" : "chevdown"} size={16} />
+                    </button>
+                    {catOpen && (
+                      <div className="catgrp-l">
+                        <div className="catgrp-items">
+                          {poCats.map((c) => (
+                            <button
+                              type="button"
+                              key={c.id}
+                              className={`nav sub ${path === "/admin/pos" && poCur === String(c.id) ? "on" : ""}`}
+                              onClick={() => {
+                                setCatSel(c.id);
+                                setDrawer(false);
+                                navigate("/admin/pos");
+                              }}
+                              title={c.name}
+                            >
+                              <em>{c.name}</em>
+                            </button>
+                          ))}
+                        </div>
+
+                        <button
+                          type="button"
+                          className={`nav sub ${path === "/admin/pos" && poCur === "all" ? "on" : ""}`}
+                          onClick={() => {
+                            setCatSel("all");
+                            setDrawer(false);
+                            navigate("/admin/pos");
+                          }}
+                          title="All Items"
+                        >
+                          <Icon n="grid" size={17} />
+                          <em>All Items</em>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </React.Fragment>
             ))}
           </nav>
@@ -932,12 +1066,31 @@ export default function Shell({ admin, children }) {
           {admin && (
             <div className="side-art" aria-hidden="true">
               <svg viewBox="0 0 200 120" fill="none">
-                <path d="M84 30c-4 4 4 7 0 12M96 26c-4 4 4 7 0 12M108 30c-4 4 4 7 0 12" stroke="#bff0a8" strokeWidth="3" strokeLinecap="round" />
-                <path d="M30 96c-14-6-18-22-10-34 12 2 20 14 10 34z" fill="#5fd34a" />
-                <path d="M166 92c14-4 20-20 12-32-12 0-22 12-12 32z" fill="#3fb83a" />
-                <path d="M62 52h62v18a28 28 0 0 1-28 28h-6a28 28 0 0 1-28-28z" fill="#fff" />
+                <path
+                  d="M84 30c-4 4 4 7 0 12M96 26c-4 4 4 7 0 12M108 30c-4 4 4 7 0 12"
+                  stroke="#bff0a8"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                />
+                <path
+                  d="M30 96c-14-6-18-22-10-34 12 2 20 14 10 34z"
+                  fill="#5fd34a"
+                />
+                <path
+                  d="M166 92c14-4 20-20 12-32-12 0-22 12-12 32z"
+                  fill="#3fb83a"
+                />
+                <path
+                  d="M62 52h62v18a28 28 0 0 1-28 28h-6a28 28 0 0 1-28-28z"
+                  fill="#fff"
+                />
                 <ellipse cx="93" cy="52" rx="31" ry="6" fill="#2fa12f" />
-                <path d="M124 58h6a10 10 0 0 1 0 20h-9" stroke="#fff" strokeWidth="6" strokeLinecap="round" />
+                <path
+                  d="M124 58h6a10 10 0 0 1 0 20h-9"
+                  stroke="#fff"
+                  strokeWidth="6"
+                  strokeLinecap="round"
+                />
                 <ellipse cx="93" cy="104" rx="52" ry="8" fill="#e3f5da" />
               </svg>
             </div>
@@ -958,7 +1111,8 @@ export default function Shell({ admin, children }) {
         {drawer && <div className="scrim" onClick={() => setDrawer(false)} />}
         {hasPending && soundLocked && (
           <button className="no-sound" onClick={() => {}}>
-            <Icon n="bell" size={16} /> New order waiting. Click here to turn on order sound
+            <Icon n="bell" size={16} /> New order waiting. Click here to turn on
+            order sound
           </button>
         )}
         <style>{`
@@ -976,7 +1130,11 @@ export default function Shell({ admin, children }) {
           @media (prefers-reduced-motion:reduce){.hbtn.plat.neworders.ringing,.hbtn.plat.neworders.ringing svg{animation:none}}
         `}</style>
         {kotQueue[0] && (
-          <KotAutoPrint key={kotQueue[0].qid} order={kotQueue[0]} onDone={() => setKotQueue((l) => l.slice(1))} />
+          <KotAutoPrint
+            key={kotQueue[0].qid}
+            order={kotQueue[0]}
+            onDone={() => setKotQueue((l) => l.slice(1))}
+          />
         )}
         <div className="pops" aria-live="polite">
           {pops.map((p) => (
@@ -988,18 +1146,17 @@ export default function Shell({ admin, children }) {
                 navigate(p.to, p.state);
               }}
             >
-              
-<span className="pop-i">
-  {p.kind === "qr-call" ? (
-    <Icon n="phone" size={24} />
-  ) : p.kind === "qr-order" ? (
-    <Icon n="cart" size={24} />
-  ) : p.kind === "kot" ? (
-    <Icon n="utensils" size={22} />
-  ) : (
-    <PlatIcon p={p.kind} size={44} />
-  )}
-</span>
+              <span className="pop-i">
+                {p.kind === "qr-call" ? (
+                  <Icon n="phone" size={24} />
+                ) : p.kind === "qr-order" ? (
+                  <Icon n="cart" size={24} />
+                ) : p.kind === "kot" ? (
+                  <Icon n="utensils" size={22} />
+                ) : (
+                  <PlatIcon p={p.kind} size={44} />
+                )}
+              </span>
 
               <span className="pop-t">
                 <b>{p.title}</b>

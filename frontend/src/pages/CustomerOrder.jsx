@@ -2,8 +2,23 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import "../styles/customer-app.css";
 import Icon from "../components/customer/Icons";
 import { API_URL, img, money } from "../lib/api";
-import { AboutPage, AccountTab, FavoritesPage, HomeTab, MenuTab, OffersPage, OrderDetail, OrdersTab } from "../components/customer/tabs";
-import { BottomNav, NeedAnything, Sheet, Stepper, billNo } from "../components/customer/parts";
+import {
+  AboutPage,
+  AccountTab,
+  FavoritesPage,
+  HomeTab,
+  MenuTab,
+  OffersPage,
+  OrderDetail,
+  OrdersTab,
+} from "../components/customer/tabs";
+import {
+  BottomNav,
+  NeedAnything,
+  Sheet,
+  Stepper,
+  billNo,
+} from "../components/customer/parts";
 
 /* ------------------------------------------------------------------ */
 /*  Customer QR ordering app: Home / Menu / My Order / Account         */
@@ -25,7 +40,8 @@ async function request(path, options = {}) {
     body: options.body ? JSON.stringify(options.body) : undefined,
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok || data.success === false) throw new Error(data.message || "Request failed.");
+  if (!res.ok || data.success === false)
+    throw new Error(data.message || "Request failed.");
   return data;
 }
 
@@ -62,14 +78,29 @@ const writeJson = (key, value) => {
 
 // keep product ids of items we already know when the server sends names only
 const mergeItems = (old = [], next = []) =>
-  next.length ? next.map((i) => ({ ...i, id: i.id ?? old.find((x) => x.name === i.name)?.id })) : old;
+  next.length
+    ? next.map((i) => ({
+        ...i,
+        id: i.id ?? old.find((x) => x.name === i.name)?.id,
+      }))
+    : old;
 
 function upsertOrder(list, o) {
   const i = list.findIndex((x) => x.id === o.id);
   if (i < 0) return [...list, o].slice(-30);
   const cur = list[i];
-  const next = { ...cur, ...o, items: mergeItems(cur.items, o.items), guests: o.guests || cur.guests };
-  if (cur.status === next.status && cur.total === next.total && (cur.items || []).length === (next.items || []).length) return list;
+  const next = {
+    ...cur,
+    ...o,
+    items: mergeItems(cur.items, o.items),
+    guests: o.guests || cur.guests,
+  };
+  if (
+    cur.status === next.status &&
+    cur.total === next.total &&
+    (cur.items || []).length === (next.items || []).length
+  )
+    return list;
   const copy = [...list];
   copy[i] = next;
   return copy;
@@ -100,7 +131,9 @@ export default function CustomerOrder({ token }) {
 
   // customer details asked right after scanning (name required, phone optional)
   const profileKey = `bb_customer_${token}`;
-  const [profile, setProfile] = useState(() => readJson(profileKey, { name: "", phone: "" }));
+  const [profile, setProfile] = useState(() =>
+    readJson(profileKey, { name: "", phone: "" }),
+  );
   const [nameDraft, setNameDraft] = useState("");
   const [phoneDraft, setPhoneDraft] = useState("");
 
@@ -149,14 +182,24 @@ export default function CustomerOrder({ token }) {
 
   // "How many people are you?"
   const [askParty, setAskParty] = useState(false); // false | "name" | "guests"
-  const [guestCount, setGuestCount] = useState(() => Math.min(30, Math.max(1, readNumber("bb_guests") || 2)));
-  const maxGuests = data?.table?.capacity > 0 ? Math.min(30, Number(data.table.capacity)) : 8;
+  const [guestCount, setGuestCount] = useState(() =>
+    Math.min(30, Math.max(1, readNumber("bb_guests") || 2)),
+  );
+  const maxGuests =
+    data?.table?.capacity > 0 ? Math.min(30, Number(data.table.capacity)) : 8;
   const pickedGuests = Math.min(guestCount, maxGuests);
   const [partyBusy, setPartyBusy] = useState(false);
   const [partyErr, setPartyErr] = useState(false);
 
   // page behind a sheet must not scroll
-  const overlayOpen = showCheckout || !!placed || showHelp || showMore || showFilters || !!panel || askParty;
+  const overlayOpen =
+    showCheckout ||
+    !!placed ||
+    showHelp ||
+    showMore ||
+    showFilters ||
+    !!panel ||
+    askParty;
   useEffect(() => {
     if (!overlayOpen) return undefined;
     const html = document.documentElement;
@@ -242,7 +285,10 @@ export default function CustomerOrder({ token }) {
         name = me.name;
         setProfile({ name: me.name, phone: me.phone || "" });
       }
-      if (me.orders && me.orders.length) setSaved((prev) => me.orders.reduce((acc, o) => upsertOrder(acc, o), prev));
+      if (me.orders && me.orders.length)
+        setSaved((prev) =>
+          me.orders.reduce((acc, o) => upsertOrder(acc, o), prev),
+        );
     }
     if (!name) setAskParty("name");
     else if (!data.party) setAskParty("guests");
@@ -297,21 +343,38 @@ export default function CustomerOrder({ token }) {
     () =>
       (data?.categories || [])
         .map((c) => {
-          const items = products.filter((p) => String(p.category_id) === String(c.id));
-          return { ...c, items, cover: c.image_url || items.find((p) => p.image_url)?.image_url || "" };
+          const items = products.filter(
+            (p) => String(p.category_id) === String(c.id),
+          );
+          return {
+            ...c,
+            items,
+            cover:
+              c.image_url || items.find((p) => p.image_url)?.image_url || "",
+          };
         })
         .filter((c) => c.items.length > 0),
     [data, products],
   );
-  const offers = useMemo(() => (Array.isArray(data?.offers) ? data.offers : []), [data]);
+  const offers = useMemo(
+    () => (Array.isArray(data?.offers) ? data.offers : []),
+    [data],
+  );
   const recommended = useMemo(() => {
-    const tagged = products.filter((p) => /best|chef|popular/i.test(String(p.tag || "")));
+    const tagged = products.filter((p) =>
+      /best|chef|popular/i.test(String(p.tag || "")),
+    );
     if (tagged.length) return tagged.slice(0, 4);
-    return categories.map((c) => c.items.find((p) => p.image_url)).filter(Boolean).slice(0, 4);
+    return categories
+      .map((c) => c.items.find((p) => p.image_url))
+      .filter(Boolean)
+      .slice(0, 4);
   }, [products, categories]);
 
   // ---- cart ----
-  const lines = products.filter((p) => cart[p.id]).map((p) => ({ ...p, qty: cart[p.id] }));
+  const lines = products
+    .filter((p) => cart[p.id])
+    .map((p) => ({ ...p, qty: cart[p.id] }));
   const total = lines.reduce((s, p) => s + Number(p.price) * p.qty, 0);
   const count = lines.reduce((s, p) => s + p.qty, 0);
   const change = (id, qty) =>
@@ -321,7 +384,8 @@ export default function CustomerOrder({ token }) {
       else next[id] = Math.min(99, qty);
       return next;
     });
-  const toggleFav = (id) => setFavs((f) => (f.includes(id) ? f.filter((x) => x !== id) : [...f, id]));
+  const toggleFav = (id) =>
+    setFavs((f) => (f.includes(id) ? f.filter((x) => x !== id) : [...f, id]));
 
   // ---- orders (history + live status) ----
   const orders = useMemo(() => {
@@ -340,7 +404,12 @@ export default function CustomerOrder({ token }) {
   const hasLive = orders.some((o) => OPEN.includes(o.ui));
 
   const canBill = !!track && track.status !== "cancelled";
-  const showTracker = !!track && !(["served", "bill_pending", "cancelled"].includes(track.status) && dismissed === `${track.id}:${track.status}`);
+  const showTracker =
+    !!track &&
+    !(
+      ["served", "bill_pending", "cancelled"].includes(track.status) &&
+      dismissed === `${track.id}:${track.status}`
+    );
 
   // ---- navigation ----
   const changeTab = (k) => {
@@ -400,11 +469,37 @@ export default function CustomerOrder({ token }) {
         },
       });
       const o = result.order;
-      const items = lines.map((p) => ({ id: p.id, name: p.name, qty: p.qty, line_total: p.price * p.qty }));
+      const items = lines.map((p) => ({
+        id: p.id,
+        name: p.name,
+        qty: p.qty,
+        line_total: p.price * p.qty,
+      }));
       const createdAt = new Date().toISOString();
       placedAtRef.current = Date.now();
-      setSaved((prev) => upsertOrder(prev, { id: o.id, bill_no: o.bill_no, status: "pending", total: o.total, created_at: createdAt, items, guests: data.party?.guests }));
-      setTrack((prev) => (prev && prev.id === o.id ? { ...prev, total: o.total } : { id: o.id, bill_no: o.bill_no, status: "pending", total: o.total, created_at: createdAt, items }));
+      setSaved((prev) =>
+        upsertOrder(prev, {
+          id: o.id,
+          bill_no: o.bill_no,
+          status: "pending",
+          total: o.total,
+          created_at: createdAt,
+          items,
+          guests: data.party?.guests,
+        }),
+      );
+      setTrack((prev) =>
+        prev && prev.id === o.id
+          ? { ...prev, total: o.total }
+          : {
+              id: o.id,
+              bill_no: o.bill_no,
+              status: "pending",
+              total: o.total,
+              created_at: createdAt,
+              items,
+            },
+      );
       setPlaced({ id: o.id, bill_no: o.bill_no });
       setCart({});
       setNote("");
@@ -419,7 +514,10 @@ export default function CustomerOrder({ token }) {
   const submitName = () => {
     const name = nameDraft.trim();
     if (name.length < 2) return setNotice("Please enter your name.");
-    if (phoneDraft && !/^[0-9]{10}$/.test(phoneDraft)) return setNotice("Please enter a valid 10-digit mobile number, or leave it empty.");
+    if (phoneDraft && !/^[0-9]{10}$/.test(phoneDraft))
+      return setNotice(
+        "Please enter a valid 10-digit mobile number, or leave it empty.",
+      );
     setProfile({ name, phone: phoneDraft });
     setAskParty(data.party ? false : "guests");
   };
@@ -427,9 +525,15 @@ export default function CustomerOrder({ token }) {
   const submitParty = async () => {
     setPartyBusy(true);
     try {
-      await request(`/public/qr/${token}/seat`, { method: "POST", body: { guests: pickedGuests } });
+      await request(`/public/qr/${token}/seat`, {
+        method: "POST",
+        body: { guests: pickedGuests },
+      });
       writeNumber("bb_guests", pickedGuests);
-      setData((d) => ({ ...d, party: { guests: pickedGuests, since: new Date().toISOString() } }));
+      setData((d) => ({
+        ...d,
+        party: { guests: pickedGuests, since: new Date().toISOString() },
+      }));
       setPartyErr(false);
       setAskParty(false);
     } catch (e) {
@@ -445,7 +549,10 @@ export default function CustomerOrder({ token }) {
     if (bellBusy || left > 0) return false;
     setBellBusy(true);
     try {
-      const result = await request(`/public/qr/${token}/call`, { method: "POST", body: { requests, other_text: other.trim(), ...extra } });
+      const result = await request(`/public/qr/${token}/call`, {
+        method: "POST",
+        body: { requests, other_text: other.trim(), ...extra },
+      });
       const t = Date.now();
       const end = t + CALL_COOLDOWN_SEC * 1000;
       writeNumber(bellKey, end);
@@ -470,14 +577,21 @@ export default function CustomerOrder({ token }) {
       setBellBusy(false);
     }
   };
-  const toggleRequest = (key) => setPicked((p) => (p.includes(key) ? p.filter((k) => k !== key) : [...p, key]));
+  const toggleRequest = (key) =>
+    setPicked((p) =>
+      p.includes(key) ? p.filter((k) => k !== key) : [...p, key],
+    );
   const requestBill = () => {
-    if (!canBill) return setNotice("Please place an order before asking for the bill.");
+    if (!canBill)
+      return setNotice("Please place an order before asking for the bill.");
     return callCashier([], "", { kind: "bill" });
   };
   const sendSpecial = async () => {
     if (!reqText.trim()) return setNotice("Please type your request.");
-    const ok = await callCashier([], "", { kind: "request", note: reqText.trim() });
+    const ok = await callCashier([], "", {
+      kind: "request",
+      note: reqText.trim(),
+    });
     if (ok) {
       setReqText("");
       setPanel("");
@@ -495,14 +609,21 @@ export default function CustomerOrder({ token }) {
     setFbDone(false);
     setPanel("feedback");
   };
-  const toggleTag = (t) => setFbTags((l) => (l.includes(t) ? l.filter((x) => x !== t) : [...l, t]));
+  const toggleTag = (t) =>
+    setFbTags((l) => (l.includes(t) ? l.filter((x) => x !== t) : [...l, t]));
   const submitFeedback = async () => {
     if (!rating) return setNotice("Please tap a star to rate us.");
     setFbBusy(true);
     try {
       await request(`/public/qr/${token}/feedback`, {
         method: "POST",
-        body: { rating, tags: fbTags, comment: fbText.trim(), order_id: track?.id || undefined, customer_name: profile.name.trim() },
+        body: {
+          rating,
+          tags: fbTags,
+          comment: fbText.trim(),
+          order_id: track?.id || undefined,
+          customer_name: profile.name.trim(),
+        },
       });
       setFbDone(true);
     } catch (e) {
@@ -518,7 +639,9 @@ export default function CustomerOrder({ token }) {
     setCart((cur) => {
       const next = { ...cur };
       (o.items || []).forEach((i) => {
-        const p = products.find((x) => x.id === i.id) || products.find((x) => x.name === i.name);
+        const p =
+          products.find((x) => x.id === i.id) ||
+          products.find((x) => x.name === i.name);
         if (p) {
           next[p.id] = Math.min(99, (next[p.id] || 0) + i.qty);
           added += i.qty;
@@ -528,7 +651,8 @@ export default function CustomerOrder({ token }) {
     });
     setShowMore(false);
     setTimeout(() => {
-      if (!added) setNotice("These items are not available on the menu right now.");
+      if (!added)
+        setNotice("These items are not available on the menu right now.");
       else setShowCheckout(true);
     }, 0);
   };
@@ -567,7 +691,10 @@ export default function CustomerOrder({ token }) {
           <Icon n="alert" size={40} stroke={1.5} />
           <h2>Unable to open this table menu</h2>
           <p>{error}</p>
-          <button className="cx-primary" onClick={() => window.location.reload()}>
+          <button
+            className="cx-primary"
+            onClick={() => window.location.reload()}
+          >
             Try again
           </button>
         </div>
@@ -586,15 +713,56 @@ export default function CustomerOrder({ token }) {
     ) : null;
 
   const c = {
-    data, profile, tab, categories, products, offers, recommended, cart, change, count, total, favs, toggleFav,
-    track, orders, showTracker, dismissTrack, search, setSearch, searchRef, selCat, setSelCat, filters,
-    setTab: changeTab, openDeep, goBack, openCategory, focusSearch, clearFilters, notify,
-    openCart: () => (count ? setShowCheckout(true) : setNotice("Your cart is empty. Add some items first.")),
+    data,
+    profile,
+    tab,
+    categories,
+    products,
+    offers,
+    recommended,
+    cart,
+    change,
+    count,
+    total,
+    favs,
+    toggleFav,
+    track,
+    orders,
+    showTracker,
+    dismissTrack,
+    search,
+    setSearch,
+    searchRef,
+    selCat,
+    setSelCat,
+    filters,
+    setTab: changeTab,
+    openDeep,
+    goBack,
+    openCategory,
+    focusSearch,
+    clearFilters,
+    notify,
+    openCart: () =>
+      count
+        ? setShowCheckout(true)
+        : setNotice("Your cart is empty. Add some items first."),
     openFilters: () => setShowFilters(true),
     openHelp: () => setShowHelp(true),
     openMore: () => setShowMore(true),
-    openFeedback, setAskParty, reorder, requestBill, callCashier, callBlocked, left, bellBusy,
-    picked, toggleRequest, otherText, setOtherText, callNote,
+    openFeedback,
+    setAskParty,
+    reorder,
+    requestBill,
+    callCashier,
+    callBlocked,
+    left,
+    bellBusy,
+    picked,
+    toggleRequest,
+    otherText,
+    setOtherText,
+    callNote,
     bell: { left, ringing, busy: bellBusy, onPress: () => callCashier() },
   };
 
@@ -634,7 +802,7 @@ export default function CustomerOrder({ token }) {
         )}
         <footer className="cx-foot">
           <p>Thank you for visiting {data.restaurant}!</p>
-          <small>Powered by AmpleMind Technologies Pvt Ltd</small>
+          <small>Powered by Amplemind Technologies Pvt Ltd Pvt Ltd</small>
         </footer>
       </main>
 
@@ -663,16 +831,32 @@ export default function CustomerOrder({ token }) {
 
       {/* ===== scan welcome: 1) your name  2) how many people ===== */}
       {askParty && (
-        <div className="cx-party" role="dialog" aria-modal="true" aria-label={askParty === "name" ? "Your details" : "Number of guests"}>
+        <div
+          className="cx-party"
+          role="dialog"
+          aria-modal="true"
+          aria-label={askParty === "name" ? "Your details" : "Number of guests"}
+        >
           <div className="cx-party-card">
-            {((askParty === "name" && profile.name) || (askParty === "guests" && data.party)) && (
-              <button className="cx-xbtn corner" aria-label="Close" onClick={() => setAskParty(false)}>
+            {((askParty === "name" && profile.name) ||
+              (askParty === "guests" && data.party)) && (
+              <button
+                className="cx-xbtn corner"
+                aria-label="Close"
+                onClick={() => setAskParty(false)}
+              >
                 <Icon n="x" size={20} />
               </button>
             )}
-            {data.logo_url && <img className="cx-party-logo" src={img(data.logo_url)} alt="" />}
+            {data.logo_url && (
+              <img className="cx-party-logo" src={img(data.logo_url)} alt="" />
+            )}
             <small>{data.restaurant}</small>
-            <h2>{profile.name && askParty === "guests" ? `Welcome, ${profile.name}!` : "Welcome!"}</h2>
+            <h2>
+              {profile.name && askParty === "guests"
+                ? `Welcome, ${profile.name}!`
+                : "Welcome!"}
+            </h2>
             <p className="cx-tablepill dark">
               <Icon n="table" size={16} /> Table {data.table.name}
             </p>
@@ -681,8 +865,31 @@ export default function CustomerOrder({ token }) {
               <>
                 <h3>Tell us about you</h3>
                 <div className="cx-form tight">
-                  <input className="cx-input" type="text" aria-label="Your name" placeholder="Your name *" maxLength={100} autoComplete="name" value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} />
-                  <input className="cx-input" type="tel" inputMode="numeric" aria-label="Mobile number" placeholder="Mobile number (optional)" maxLength={10} autoComplete="tel" value={phoneDraft} onChange={(e) => setPhoneDraft(e.target.value.replace(/\D/g, "").slice(0, 10))} />
+                  <input
+                    className="cx-input"
+                    type="text"
+                    aria-label="Your name"
+                    placeholder="Your name *"
+                    maxLength={100}
+                    autoComplete="name"
+                    value={nameDraft}
+                    onChange={(e) => setNameDraft(e.target.value)}
+                  />
+                  <input
+                    className="cx-input"
+                    type="tel"
+                    inputMode="numeric"
+                    aria-label="Mobile number"
+                    placeholder="Mobile number (optional)"
+                    maxLength={10}
+                    autoComplete="tel"
+                    value={phoneDraft}
+                    onChange={(e) =>
+                      setPhoneDraft(
+                        e.target.value.replace(/\D/g, "").slice(0, 10),
+                      )
+                    }
+                  />
                 </div>
                 <button className="cx-primary" onClick={submitName}>
                   Continue <Icon n="arrowr" size={20} />
@@ -691,21 +898,43 @@ export default function CustomerOrder({ token }) {
             ) : (
               <>
                 <h3>How many people are you?</h3>
-                <div className="cx-guests" role="radiogroup" aria-label="Number of people">
-                  {Array.from({ length: maxGuests }, (_, i) => i + 1).map((n) => (
-                    <button key={n} type="button" role="radio" aria-checked={n === pickedGuests} className={n === pickedGuests ? "on" : ""} onClick={() => setGuestCount(n)}>
-                      {n}
-                    </button>
-                  ))}
+                <div
+                  className="cx-guests"
+                  role="radiogroup"
+                  aria-label="Number of people"
+                >
+                  {Array.from({ length: maxGuests }, (_, i) => i + 1).map(
+                    (n) => (
+                      <button
+                        key={n}
+                        type="button"
+                        role="radio"
+                        aria-checked={n === pickedGuests}
+                        className={n === pickedGuests ? "on" : ""}
+                        onClick={() => setGuestCount(n)}
+                      >
+                        {n}
+                      </button>
+                    ),
+                  )}
                 </div>
                 <p className="cx-hint">
-                  {data.table.capacity ? `This table seats ${maxGuests}. ` : ""}Tap the number of people sitting.
+                  {data.table.capacity ? `This table seats ${maxGuests}. ` : ""}
+                  Tap the number of people sitting.
                 </p>
-                <button className="cx-primary" onClick={submitParty} disabled={partyBusy}>
-                  {partyBusy ? "Please wait..." : "Continue"} <Icon n="arrowr" size={20} />
+                <button
+                  className="cx-primary"
+                  onClick={submitParty}
+                  disabled={partyBusy}
+                >
+                  {partyBusy ? "Please wait..." : "Continue"}{" "}
+                  <Icon n="arrowr" size={20} />
                 </button>
                 {partyErr && (
-                  <button className="cx-linkbtn center" onClick={() => setAskParty(false)}>
+                  <button
+                    className="cx-linkbtn center"
+                    onClick={() => setAskParty(false)}
+                  >
                     Skip for now
                   </button>
                 )}
@@ -717,7 +946,11 @@ export default function CustomerOrder({ token }) {
 
       {/* ===== checkout ===== */}
       {showCheckout && (
-        <Sheet title="Your order" sub={`Table ${data.table.name}${profile.name ? " · " + profile.name : ""}`} onClose={() => setShowCheckout(false)}>
+        <Sheet
+          title="Your order"
+          sub={`Table ${data.table.name}${profile.name ? " · " + profile.name : ""}`}
+          onClose={() => setShowCheckout(false)}
+        >
           {lines.length === 0 ? (
             <p className="cx-note">Your cart is empty.</p>
           ) : (
@@ -730,7 +963,11 @@ export default function CustomerOrder({ token }) {
                       {money(p.price)} x {p.qty}
                     </small>
                   </div>
-                  <Stepper qty={p.qty} onChange={(q) => change(p.id, q)} small />
+                  <Stepper
+                    qty={p.qty}
+                    onChange={(q) => change(p.id, q)}
+                    small
+                  />
                   <strong>{money(p.price * p.qty)}</strong>
                 </div>
               ))}
@@ -738,15 +975,27 @@ export default function CustomerOrder({ token }) {
           )}
           <div className="cx-form">
             <h3>Special instructions (optional)</h3>
-            <textarea className="cx-input" rows={2} maxLength={200} placeholder="e.g. Less sugar, extra spicy, no onion..." value={note} onChange={(e) => setNote(e.target.value)} />
+            <textarea
+              className="cx-input"
+              rows={2}
+              maxLength={200}
+              placeholder="e.g. Less sugar, extra spicy, no onion..."
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+            />
             <small className="cx-cnt">{note.length}/200</small>
           </div>
           <div className="cx-total big">
             <span>Total amount</span>
             <b>{money(total)}</b>
           </div>
-          <button className="cx-primary" onClick={place} disabled={busy || count === 0}>
-            {busy ? "Sending order..." : "Place order"} <Icon n="check" size={20} stroke={2.4} />
+          <button
+            className="cx-primary"
+            onClick={place}
+            disabled={busy || count === 0}
+          >
+            {busy ? "Sending order..." : "Place order"}{" "}
+            <Icon n="check" size={20} stroke={2.4} />
           </button>
           <p className="cx-note">Please pay at the cashier after your meal.</p>
         </Sheet>
@@ -754,13 +1003,19 @@ export default function CustomerOrder({ token }) {
 
       {/* ===== order placed ===== */}
       {placed && (
-        <Sheet title="Order placed" sub={`Table ${data.table.name}`} onClose={() => setPlaced(null)}>
+        <Sheet
+          title="Order placed"
+          sub={`Table ${data.table.name}`}
+          onClose={() => setPlaced(null)}
+        >
           <div className="cx-ok">
             <span>
               <Icon n="check" size={36} stroke={2.4} />
             </span>
             <b>Thank you! We have received your order.</b>
-            <p>Order #{billNo(placed)} is waiting to be accepted by our staff.</p>
+            <p>
+              Order #{billNo(placed)} is waiting to be accepted by our staff.
+            </p>
           </div>
           <button
             className="cx-primary"
@@ -780,9 +1035,29 @@ export default function CustomerOrder({ token }) {
 
       {/* ===== help ===== */}
       {showHelp && (
-        <Sheet title="How can we help?" sub={`Table ${data.table.name}`} onClose={() => setShowHelp(false)}>
-          <NeedAnything bare picked={picked} onToggle={toggleRequest} otherText={otherText} onOtherText={setOtherText} left={left} busy={bellBusy} onCall={() => callCashier(picked, otherText)} />
-          <button className="cx-outline full" onClick={() => { setShowHelp(false); requestBill(); }} disabled={callBlocked}>
+        <Sheet
+          title="How can we help?"
+          sub={`Table ${data.table.name}`}
+          onClose={() => setShowHelp(false)}
+        >
+          <NeedAnything
+            bare
+            picked={picked}
+            onToggle={toggleRequest}
+            otherText={otherText}
+            onOtherText={setOtherText}
+            left={left}
+            busy={bellBusy}
+            onCall={() => callCashier(picked, otherText)}
+          />
+          <button
+            className="cx-outline full"
+            onClick={() => {
+              setShowHelp(false);
+              requestBill();
+            }}
+            disabled={callBlocked}
+          >
             <Icon n="receipt" size={20} /> Request Bill
           </button>
         </Sheet>
@@ -790,13 +1065,46 @@ export default function CustomerOrder({ token }) {
 
       {/* ===== more ===== */}
       {showMore && (
-        <Sheet title="More options" sub={`Table ${data.table.name}`} onClose={() => setShowMore(false)}>
+        <Sheet
+          title="More options"
+          sub={`Table ${data.table.name}`}
+          onClose={() => setShowMore(false)}
+        >
           <div className="cx-more">
             {[
-              ["note", "Add special request", "Extra sauce, no spice, etc.", () => { setShowMore(false); setPanel("request"); }],
-              ["refresh", "Reorder", "Order again from your last order", () => { setShowMore(false); reorderLast(); }],
-              ["star", "Feedback / rate", "Share your experience", openFeedback],
-              ["info", "Cafe info", "Contact and location", () => { setShowMore(false); openDeep("about"); }],
+              [
+                "note",
+                "Add special request",
+                "Extra sauce, no spice, etc.",
+                () => {
+                  setShowMore(false);
+                  setPanel("request");
+                },
+              ],
+              [
+                "refresh",
+                "Reorder",
+                "Order again from your last order",
+                () => {
+                  setShowMore(false);
+                  reorderLast();
+                },
+              ],
+              [
+                "star",
+                "Feedback / rate",
+                "Share your experience",
+                openFeedback,
+              ],
+              [
+                "info",
+                "Cafe info",
+                "Contact and location",
+                () => {
+                  setShowMore(false);
+                  openDeep("about");
+                },
+              ],
             ].map(([icon, title, sub, fn]) => (
               <button key={title} onClick={fn}>
                 <Icon n={icon} size={24} stroke={1.6} />
@@ -813,30 +1121,59 @@ export default function CustomerOrder({ token }) {
 
       {/* ===== filters ===== */}
       {showFilters && (
-        <Sheet title="Filters" sub="Narrow down the menu" onClose={() => setShowFilters(false)}>
+        <Sheet
+          title="Filters"
+          sub="Narrow down the menu"
+          onClose={() => setShowFilters(false)}
+        >
           <div className="cx-form">
             <h3>Food type</h3>
             <div className="cx-tags">
-              {[["all", "All"], ["veg", "Veg"], ["nonveg", "Non-veg"], ["egg", "Egg"]].map(([k, l]) => (
-                <button key={k} className={filters.type === k ? "on" : ""} aria-pressed={filters.type === k} onClick={() => setFilters((f) => ({ ...f, type: k }))}>
+              {[
+                ["all", "All"],
+                ["veg", "Veg"],
+                ["nonveg", "Non-veg"],
+                ["egg", "Egg"],
+              ].map(([k, l]) => (
+                <button
+                  key={k}
+                  className={filters.type === k ? "on" : ""}
+                  aria-pressed={filters.type === k}
+                  onClick={() => setFilters((f) => ({ ...f, type: k }))}
+                >
                   {l}
                 </button>
               ))}
             </div>
             <h3>Sort by price</h3>
             <div className="cx-tags">
-              {[["default", "Default"], ["low", "Low to high"], ["high", "High to low"]].map(([k, l]) => (
-                <button key={k} className={filters.sort === k ? "on" : ""} aria-pressed={filters.sort === k} onClick={() => setFilters((f) => ({ ...f, sort: k }))}>
+              {[
+                ["default", "Default"],
+                ["low", "Low to high"],
+                ["high", "High to low"],
+              ].map(([k, l]) => (
+                <button
+                  key={k}
+                  className={filters.sort === k ? "on" : ""}
+                  aria-pressed={filters.sort === k}
+                  onClick={() => setFilters((f) => ({ ...f, sort: k }))}
+                >
                   {l}
                 </button>
               ))}
             </div>
           </div>
           <div className="cx-actions">
-            <button className="cx-outline" onClick={() => setFilters({ type: "all", sort: "default" })}>
+            <button
+              className="cx-outline"
+              onClick={() => setFilters({ type: "all", sort: "default" })}
+            >
               Clear
             </button>
-            <button className="cx-primary" onClick={() => setShowFilters(false)}>
+            <button
+              className="cx-primary"
+              onClick={() => setShowFilters(false)}
+            >
               Show items
             </button>
           </div>
@@ -846,14 +1183,32 @@ export default function CustomerOrder({ token }) {
       {/* ===== special request / feedback ===== */}
       {panel && (
         <Sheet
-          title={panel === "request" ? "Special request" : "Rate your experience"}
-          sub={panel === "feedback" ? "Your feedback helps us serve you better" : `Table ${data.table.name}`}
+          title={
+            panel === "request" ? "Special request" : "Rate your experience"
+          }
+          sub={
+            panel === "feedback"
+              ? "Your feedback helps us serve you better"
+              : `Table ${data.table.name}`
+          }
           onClose={() => setPanel("")}
         >
           {panel === "request" && (
             <div className="cx-form">
-              <textarea className="cx-input" rows={3} maxLength={200} aria-label="Your request" placeholder="e.g. Extra sauce, less spicy, please bring a high chair..." value={reqText} onChange={(e) => setReqText(e.target.value)} />
-              <button className="cx-primary" onClick={sendSpecial} disabled={callBlocked}>
+              <textarea
+                className="cx-input"
+                rows={3}
+                maxLength={200}
+                aria-label="Your request"
+                placeholder="e.g. Extra sauce, less spicy, please bring a high chair..."
+                value={reqText}
+                onChange={(e) => setReqText(e.target.value)}
+              />
+              <button
+                className="cx-primary"
+                onClick={sendSpecial}
+                disabled={callBlocked}
+              >
                 {left > 0 ? `Try again in ${left}s` : "Send to staff"}
               </button>
             </div>
@@ -874,22 +1229,53 @@ export default function CustomerOrder({ token }) {
               <div className="cx-form">
                 <div className="cx-stars" role="radiogroup" aria-label="Rating">
                   {[1, 2, 3, 4, 5].map((n) => (
-                    <button key={n} className={n <= rating ? "on" : ""} onClick={() => setRating(n)} aria-label={`${n} star${n > 1 ? "s" : ""}`} role="radio" aria-checked={n === rating}>
-                      <Icon n="star" size={40} fill={n <= rating} stroke={1.6} />
+                    <button
+                      key={n}
+                      className={n <= rating ? "on" : ""}
+                      onClick={() => setRating(n)}
+                      aria-label={`${n} star${n > 1 ? "s" : ""}`}
+                      role="radio"
+                      aria-checked={n === rating}
+                    >
+                      <Icon
+                        n="star"
+                        size={40}
+                        fill={n <= rating}
+                        stroke={1.6}
+                      />
                     </button>
                   ))}
                 </div>
-                <p className={`cx-fb-word ${rating ? "on" : ""}`}>{rating ? RATING_WORDS[rating] : "Tap a star to rate"}</p>
+                <p className={`cx-fb-word ${rating ? "on" : ""}`}>
+                  {rating ? RATING_WORDS[rating] : "Tap a star to rate"}
+                </p>
                 <h3>What stood out?</h3>
                 <div className="cx-tags">
                   {FEEDBACK_TAGS.map((t) => (
-                    <button key={t} className={fbTags.includes(t) ? "on" : ""} aria-pressed={fbTags.includes(t)} onClick={() => toggleTag(t)}>
+                    <button
+                      key={t}
+                      className={fbTags.includes(t) ? "on" : ""}
+                      aria-pressed={fbTags.includes(t)}
+                      onClick={() => toggleTag(t)}
+                    >
                       {t}
                     </button>
                   ))}
                 </div>
-                <textarea className="cx-input" rows={3} maxLength={300} aria-label="Your comment" placeholder="Tell us more (optional)" value={fbText} onChange={(e) => setFbText(e.target.value)} />
-                <button className="cx-primary" onClick={submitFeedback} disabled={fbBusy}>
+                <textarea
+                  className="cx-input"
+                  rows={3}
+                  maxLength={300}
+                  aria-label="Your comment"
+                  placeholder="Tell us more (optional)"
+                  value={fbText}
+                  onChange={(e) => setFbText(e.target.value)}
+                />
+                <button
+                  className="cx-primary"
+                  onClick={submitFeedback}
+                  disabled={fbBusy}
+                >
                   {fbBusy ? "Sending..." : "Submit feedback"}
                 </button>
               </div>
