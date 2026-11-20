@@ -2,13 +2,15 @@ import React, { useEffect, useState } from "react";
 import Icon from "../lib/icons";
 import { A, navigate, useAuth } from "../lib/store";
 const LOGO = process.env.PUBLIC_URL + "/amplemind-logo.png"; // logo file: frontend/public/amplemind-logo.png
-const BRAND_NAME = "Amplemind Technologies";
+const BRAND_NAME = "Amplemind POS";
+const BRAND_SUB = "Powered by Amplemind Technologies";
+const CIRCLE = (px) => ({ width: px, height: px, minWidth: px, maxWidth: px, padding: 2, background: "#fff", clipPath: "circle(50%)", boxShadow: "none" }); // circle logo (global CSS blocks border-radius)
+const FILL = { width: "100%", height: "100%", objectFit: "contain", display: "block" };
 
 export default function Login() {
   const {
     login,
-    user,
-    settings
+    user
   } = useAuth();
 
   const [f, setF] = useState({
@@ -70,10 +72,11 @@ export default function Login() {
       <section className="lgn-art">
 
         <div className="lgn-brand">
-          <span className="lgn-logo">
+          <span className="lgn-logo" style={CIRCLE(54)}>
             {LOGO ? (
               <img
                 src={LOGO}
+                style={FILL}
                 alt=""
               />
             ) : (
@@ -83,7 +86,7 @@ export default function Login() {
 
           <div>
             <b>{String(name).toUpperCase()}</b>
-            <small>{settings?.tagline}</small>
+            <small style={{ letterSpacing: ".06em", fontSize: 12 }}>{BRAND_SUB}</small>
           </div>
         </div>
 
@@ -123,7 +126,7 @@ export default function Login() {
         </div>
 
         <small className="lgn-foot">
-          © {new Date().getFullYear()} {name}
+          © {new Date().getFullYear()} Amplemind Technologies
         </small>
 
         <i className="lgn-sq a" />
@@ -142,10 +145,11 @@ export default function Login() {
 
           <div className="lgn-mobile-brand">
 
-            <span className="lgn-logo">
+            <span className="lgn-logo" style={CIRCLE(44)}>
               {LOGO ? (
                 <img
                   src={LOGO}
+                style={FILL}
                   alt=""
                 />
               ) : (

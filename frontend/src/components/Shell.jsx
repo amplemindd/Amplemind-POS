@@ -14,7 +14,9 @@ import { KotAutoPrint } from "./Receipt";
 import { edEnabled } from "../lib/edprint";
 import PlatIcon from "./PlatIcon";
 const LOGO = process.env.PUBLIC_URL + "/amplemind-logo.png"; // logo file: frontend/public/amplemind-logo.png
-const BRAND_NAME = "Amplemind Technologies";
+const BRAND_NAME = "Amplemind POS";
+const BRAND_SUB = "Powered by Amplemind Technologies";
+const CIRCLE = (px) => ({ width: px, height: px, minWidth: px, maxWidth: px, padding: 2, background: "#fff", clipPath: "circle(50%)", boxShadow: "none" }); // circle logo (global CSS blocks border-radius)
 
 const PN = { swiggy: "Swiggy", zomato: "Zomato" };
 const PUBLIC = [
@@ -556,15 +558,16 @@ export default function Shell({ admin, children }) {
             <Icon n="menu" size={22} />
           </button>
           <A to={admin ? "/admin-dashboard" : "/"} className="brand">
-            <span className="blogo">
+            <span className="blogo" style={CIRCLE(48)}>
               <SafeImg
                 src={settings.logo_url ? img(settings.logo_url) : LOGO}
+                style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
                 size={26}
               />
             </span>
             <span className="bname">
               <b>{(() => { const w = String(name).toUpperCase().split(" "); return w.length > 1 ? <>{w.slice(0, -1).join(" ")} <span className="bn-acc">{w[w.length - 1]}</span></> : w[0]; })()}</b>
-              <small>{settings.tagline}</small>
+              <small style={{ letterSpacing: ".06em", fontSize: 10 }}>{BRAND_SUB}</small>
             </span>
           </A>
           <div className="hsearch">
