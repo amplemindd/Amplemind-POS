@@ -3,7 +3,7 @@ import Icon from "../lib/icons";
 import { A, navigate, useAuth } from "../lib/store";
 const LOGO = process.env.PUBLIC_URL + "/amplemind-logo.png"; // logo file: frontend/public/amplemind-logo.png
 const BRAND_NAME = "Amplemind POS";
-const BRAND_SUB = "Powered by Amplemind Technologies Pvt Ltd";
+const BRAND_SUB = "Powered by Amplemind Technologies Pvt Ltd.";
 const CIRCLE = (px) => ({
   width: px,
   height: px,
